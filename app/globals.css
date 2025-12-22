@@ -1485,9 +1485,37 @@ main {
   z-index: 20;
 }
 
+/* Special styling for moral dilemma - make it stand out more */
+.customer-opportunity.moral-dilemma-indicator {
+  font-size: 32px;
+  animation: moral-dilemma-pulse 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(157, 127, 184, 0.8)) drop-shadow(0 0 20px var(--accent-glow));
+  color: var(--purple);
+  text-shadow: 0 0 10px var(--purple);
+}
+
 @keyframes opportunity-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.2); opacity: 0.9; }
+}
+
+@keyframes moral-dilemma-pulse {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    opacity: 1; 
+  }
+  25% { 
+    transform: scale(1.3) rotate(-5deg); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: scale(1.4) rotate(5deg); 
+    opacity: 0.95; 
+  }
+  75% { 
+    transform: scale(1.3) rotate(-3deg); 
+    opacity: 1; 
+  }
 }
 
 .customer-patience {

@@ -1,110 +1,25 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-
-type UpgradeId =
-  | "tap_speed"
-  | "tap_amount"
-  | "sell_price"
-  | "auto_seller"
-  | "premium_bier"
-  | "staff_training"
-  | "wine_cellar"
-  | "cocktail_bar"
-  | "whiskey_collection"
-  | "champagne_service"
-  | "bar_ambiance"
-  | "live_music"
-  | "loyalty_program"
-  | "social_media"
-  | "bar_expansion"
-  | "master_bartender"
-  | "vip_section"
-  | "late_night_hours"
-  | "auto_customer_service"
-  | "smart_inventory"
-  | "passive_income"
-  | "auto_upgrade";
-
-type Upgrade = {
-  id: UpgradeId;
-  name: string;
-  description: string;
-  baseCost: number;
-  costMultiplier: number;
-  level: number;
-  maxLevel?: number;
-  /** Effect strength per level, used in formulas below */
-  effect: number;
-  /** Category label, vergelijkbaar met je eerdere game */
-  category: "TAP" | "PRIJS" | "AUTOMATISCH" | "MORAAL" | "DRANK" | "AMBIANCE" | "MARKETING";
-};
-
-type LogEntry = {
-  id: number;
-  message: string;
-};
-
-type DrinkType = "bier" | "wijn" | "cocktail" | "whiskey" | "champagne";
-
-type Drink = {
-  type: DrinkType;
-  name: string;
-  basePrice: number;
-  productionTime: number; // ms per unit
-  capacity: number; // units per glass
-  unlocked: boolean;
-  level: number; // upgrade level voor deze drank
-};
-
-type CustomerOpportunity = "order" | "tip" | "special" | "complaint" | null;
-
-type CustomerQuest = {
-  customerId: string;
-  customerName: string;
-  customerSprite: string;
-  title: string;
-  description: string;
-  choices: {
-    text: string;
-    moral: number;
-    money?: number;
-    beer?: number;
-    consequence?: string;
-  }[];
-  type: "order" | "tip" | "special" | "complaint" | "dilemma";
-};
-
-type Customer = {
-  id: string;
-  name: string;
-  x: number; // Position in bar (0-100%)
-  y: number; // Position in bar (0-100%)
-  /** Index van de barkruk waar deze klant zit (0-5), of null als staand/lopend */
-  seatIndex: number | null;
-  sprite: string; // Emoji or character for pixel art style
-  opportunity: CustomerOpportunity;
-  opportunityTime: number; // When opportunity appeared
-  patience: number; // 0-100, decreases over time
-  orderValue: number; // How much they'll pay
-  color: string; // Color theme for the customer
-  walking: boolean; // Is customer walking in/out
-  direction: "left" | "right"; // Walking direction
-};
-
-type MoralChoice = {
-  id: string;
-  title: string;
-  description: string;
-  choices: {
-    text: string;
-    moral: number;
-    money?: number;
-    beer?: number;
-    consequence?: string;
-  }[];
-  type: "sketchy" | "moral" | "opportunity" | "dilemma";
-};
+import type {
+  UpgradeId,
+  Upgrade,
+  LogEntry,
+  DrinkType,
+  Drink,
+  Customer,
+  CustomerQuest,
+  CustomerOpportunity,
+  MoralChoice,
+  SkeletonPersonality
+} from "./types";
+import SkeletonCommentator from "./components/SkeletonCommentator";
+import BarScene from "./components/BarScene";
+import MoralChoiceModal from "./components/MoralChoiceModal";
+import CustomerQuestModal from "./components/CustomerQuestModal";
+import AchievementsPanel from "./components/AchievementsPanel";
+import UpgradesPanel from "./components/UpgradesPanel";
+import MoralLogPanel from "./components/MoralLogPanel";
 
 const BASE_TAP_INTERVAL = 1000; // ms
 const BASE_TAP_AMOUNT = 1; // bier per tick
@@ -373,154 +288,154 @@ function getRandomDialog(action: string, moral: number): string {
 const moralEvents: MoralChoice[] = [
   {
     id: "sketchy_supplier",
-    title: "Een Schaduwachtige Aanbieding",
-    description: "Een man in een pak dat duidelijk te klein is (of hij is te groot, wie weet) glipt je bar binnen. 'Psst, vriend,' fluistert hij, terwijl zijn ogen schichtig naar de deur gluren alsof hij verwacht dat de politie elk moment binnenvalt. 'Ik heb een deal voor je. Bier voor de helft van de prijs. Niemand hoeft het te weten. Wat zeg je?' Hij wrijft zijn handen samen op een manier die je doet denken aan een slechte film.",
+    title: "A Shady Offer",
+    description: "A man in a suit that's clearly too small (or he's too big, who knows) slips into your bar. 'Psst, friend,' he whispers, his eyes darting nervously toward the door as if expecting the police to burst in at any moment. 'I've got a deal for you. Beer for half the price. Nobody needs to know. What do you say?' He rubs his hands together in a way that reminds you of a bad movie.",
     type: "sketchy",
     choices: [
       {
-        text: "Deal accepteren — geld besparen, maar je geweten...",
+        text: "Accept the deal — save money, but your conscience...",
         moral: -15,
         money: 50,
-        consequence: "Je neemt de deal aan. Het bier smaakt... alsof iemand er een vreemde smaak aan heeft toegevoegd. Je personeel kijkt je aan alsof je net hebt aangekondigd dat je van plan bent om de bar te verkopen aan een ketting van fastfood restaurants."
+        consequence: "You take the deal. The beer tastes... as if someone added a strange flavor to it. Your staff looks at you as if you just announced you're planning to sell the bar to a fast-food chain."
       },
       {
-        text: "Afwijzen — je hebt principes, zelfs in deze bar.",
+        text: "Refuse — you have principles, even in this bar.",
         moral: +8,
-        consequence: "Je stuurt hem weg met een beleefde maar ferme 'Nee, dank je.' Hij vertrekt teleurgesteld, terwijl je personeel je respectvol aankijkt. Je portemonnee huilt zachtjes in de hoek, maar je geweten zingt een vrolijk deuntje."
+        consequence: "You send him away with a polite but firm 'No, thank you.' He leaves disappointed, while your staff looks at you with respect. Your wallet cries softly in the corner, but your conscience sings a cheerful tune."
       }
     ]
   },
   {
     id: "drunk_customer",
-    title: "De Dronken Klant",
-    description: "Een klant die zo dronken is dat hij waarschijnlijk denkt dat hij een vliegtuig is, probeert nog een biertje te bestellen. Hij zwaait met zijn lege glas alsof het een vlag is en mompelt iets over 'nog maar één biertje, beloofd!' Je personeel kijkt je aan met de blik van iemand die weet dat dit een slecht idee is, maar ook weet dat jij de baas bent.",
+    title: "The Drunk Customer",
+    description: "A customer who's so drunk he probably thinks he's an airplane tries to order another beer. He waves his empty glass like a flag and mumbles something about 'just one more beer, I promise!' Your staff looks at you with the expression of someone who knows this is a bad idea, but also knows you're the boss.",
     type: "moral",
     choices: [
       {
-        text: "Nog een biertje geven — geld is geld, toch?",
+        text: "Give him another beer — money is money, right?",
         moral: -12,
         money: 8,
-        consequence: "Je serveert hem. Hij valt later bijna van zijn stoel en probeert een gesprek te voeren met een plant. Je geweten knaagt aan je zoals een hongerige muis aan een kaasje. Een heel hongerige muis."
+        consequence: "You serve him. He later almost falls off his stool and tries to have a conversation with a plant. Your conscience gnaws at you like a hungry mouse on cheese. A very hungry mouse."
       },
       {
-        text: "Weigeren en een taxi bellen — verantwoordelijkheid boven winst.",
+        text: "Refuse and call a taxi — responsibility over profit.",
         moral: +10,
-        consequence: "Je weigert beleefd ('Sorry, vriend, ik denk dat je genoeg hebt gehad') en belt een taxi. Je personeel glimlacht alsof je net de wereld hebt gered. Goed gedaan, detective. Je krijgt een denkbeeldige medaille."
+        consequence: "You politely refuse ('Sorry, friend, I think you've had enough') and call a taxi. Your staff smiles as if you just saved the world. Well done, detective. You get an imaginary medal."
       }
     ]
   },
   {
     id: "tax_inspector",
-    title: "De Belastinginspecteur",
-    description: "Een man met een map die zo officieel oogt dat je bijna denkt dat het een prop is, komt binnen. 'Goedemiddag,' zegt hij met een glimlach die zo breed is dat je je afvraagt of zijn gezicht niet scheurt. 'Ik ben van de belastingdienst. Nou, eigenlijk... ik kan je helpen met bepaalde administratieve problemen. Voor een kleine vergoeding, natuurlijk.' Hij wrijft zijn duim en wijsvinger tegen elkaar op een manier die universeel betekent: 'Geld, nu.'",
+    title: "The Tax Inspector",
+    description: "A man with a briefcase that looks so official you almost think it's a prop comes in. 'Good afternoon,' he says with a smile so wide you wonder if his face will crack. 'I'm from the tax department. Well, actually... I can help you with certain administrative problems. For a small fee, of course.' He rubs his thumb and forefinger together in a way that universally means: 'Money, now.'",
     type: "sketchy",
     choices: [
       {
-        text: "Omkopen — snel geld, maar risico op problemen.",
+        text: "Bribe him — quick money, but risk of problems.",
         moral: -20,
         money: -100,
-        consequence: "Je betaalt hem. Hij verdwijnt met een knipoog en een 'Tot ziens, vriend!' Je vraagt je af of dit slim was, of dat je net bent opgelicht door iemand die waarschijnlijk niet eens van de belastingdienst is. Je geweten schreeuwt, maar je portemonnee fluistert: 'Het was het waard... toch?'"
+        consequence: "You pay him. He disappears with a wink and a 'See you later, friend!' You wonder if this was smart, or if you just got scammed by someone who probably isn't even from the tax department. Your conscience screams, but your wallet whispers: 'It was worth it... right?'"
       },
       {
-        text: "Weigeren — eerlijk blijven, ook al kost het geld.",
+        text: "Refuse — stay honest, even if it costs money.",
         moral: +12,
-        consequence: "Je weigert met een ferme 'Nee, dank je.' Hij vertrekt met een frons die suggereert dat hij dit niet vaak hoort. Je slaapt beter die nacht, maar je rekening kijkt je aan alsof je net haar favoriete speeltje hebt weggenomen."
+        consequence: "You refuse with a firm 'No, thank you.' He leaves with a frown that suggests he doesn't hear this often. You sleep better that night, but your bank account looks at you as if you just took away its favorite toy."
       }
     ]
   },
   {
     id: "employee_break",
-    title: "Pauze Tijd",
-    description: "Je personeel ziet er uit alsof ze net een marathon hebben gelopen, maar dan zonder de medaille. Ze vragen om een pauze met ogen die smeken om genade. Je hebt keuzes: ze laten rusten zoals normale mensen, of doordrukken voor meer winst zoals een echte... eh, zakenman?",
+    title: "Break Time",
+    description: "Your staff looks as if they just ran a marathon, but without the medal. They ask for a break with eyes that beg for mercy. You have choices: let them rest like normal people, or push through for more profit like a real... businessman?",
     type: "dilemma",
     choices: [
       {
-        text: "Pauze geven — menselijkheid boven winst.",
+        text: "Give them a break — humanity over profit.",
         moral: +15,
         beer: -10,
-        consequence: "Je geeft ze pauze. Ze komen terug met nieuwe energie en kijken je aan alsof je net hun leven hebt gered. Ze respecteren je leiderschap, wat een vreemd gevoel is. Je voelt je bijna... goed? Vreemd."
+        consequence: "You give them a break. They come back with new energy and look at you as if you just saved their lives. They respect your leadership, which is a strange feeling. You almost feel... good? Strange."
       },
       {
-        text: "Doordrukken — tijd is geld, en geld is... geld.",
+        text: "Push through — time is money, and money is... money.",
         moral: -10,
         money: 30,
-        consequence: "Je weigert de pauze. Ze werken door, maar hun ogen verliezen hun glans alsof iemand de lichtknop heeft uitgezet. Efficiency ten koste van moreel. Je geweten fluistert: 'Was dit het waard?' Je portemonnee antwoordt: 'Ja!'"
+        consequence: "You refuse the break. They work on, but their eyes lose their shine as if someone turned off the light switch. Efficiency at the cost of morale. Your conscience whispers: 'Was this worth it?' Your wallet answers: 'Yes!'"
       }
     ]
   },
   {
     id: "charity_night",
-    title: "Een Goede Daad",
-    description: "Een lokale organisatie komt binnen met een glimlach die zo oprecht is dat je bijna denkt dat het nep is. 'We zamelen geld in voor een goed doel,' zegt ze, terwijl ze een doos schudt die duidelijk leeg is. 'Zou je deze week een deel van je winst willen doneren? Het zou je reputatie helpen!' Je portemonnee begint te huilen.",
+    title: "A Good Deed",
+    description: "A local organization comes in with a smile so sincere you almost think it's fake. 'We're collecting money for a good cause,' she says, shaking a box that's clearly empty. 'Would you like to donate part of your profits this week? It would help your reputation!' Your wallet starts crying.",
     type: "opportunity",
     choices: [
       {
-        text: "Doneren — goed voor de ziel, slecht voor de portemonnee.",
+        text: "Donate — good for the soul, bad for the wallet.",
         moral: +18,
         money: -80,
-        consequence: "Je doneert. De gemeenschap waardeert het alsof je net de wereld hebt gered. Je voelt je... goed? Vreemd gevoel. Je vraagt je af of dit is hoe normale mensen zich voelen."
+        consequence: "You donate. The community appreciates it as if you just saved the world. You feel... good? Strange feeling. You wonder if this is how normal people feel."
       },
       {
-        text: "Afwijzen — je hebt je eigen problemen.",
+        text: "Refuse — you have your own problems.",
         moral: -5,
-        consequence: "Je zegt nee met een excuus dat zo slecht is dat zelfs jij het niet gelooft. Ze vertrekken teleurgesteld. Je portemonnee is blij, je geweten minder. Het is een trade-off, zoals alles in het leven."
+        consequence: "You say no with an excuse so bad that even you don't believe it. They leave disappointed. Your wallet is happy, your conscience less so. It's a trade-off, like everything in life."
       }
     ]
   },
   {
     id: "watered_beer",
-    title: "De Verleiding",
-    description: "Een oude bekende uit je verleden komt langs. Hij ziet eruit alsof hij net uit een tijdmachine is gestapt, compleet met een hoed die waarschijnlijk uit de jaren '20 komt. 'Ik ken een truc,' zegt hij met een grijns die suggereert dat hij dit al vaker heeft gedaan. 'Water bij het bier. Niemand merkt het, en je verdient dubbel. Oude tijden, toch?' Hij wrijft zijn handen samen alsof hij een meesterplan heeft bedacht.",
+    title: "The Temptation",
+    description: "An old acquaintance from your past stops by. He looks as if he just stepped out of a time machine, complete with a hat that probably comes from the 1920s. 'I know a trick,' he says with a grin that suggests he's done this before. 'Water in the beer. Nobody notices, and you earn double. Old times, right?' He rubs his hands together as if he's come up with a master plan.",
     type: "sketchy",
     choices: [
       {
-        text: "De truc toepassen — snel geld, maar...",
+        text: "Apply the trick — quick money, but...",
         moral: -25,
         money: 120,
-        consequence: "Je doet het. Het geld stroomt binnen zoals een rivier na een regenbui, maar elke glas die je serveert voelt als een leugen. Je klanten kijken je aan alsof ze iets vreemds proeven, maar zeggen niets. Je geweten schreeuwt, maar je portemonnee zingt een vrolijk deuntje."
+        consequence: "You do it. The money flows in like a river after rain, but every glass you serve feels like a lie. Your customers look at you as if they're tasting something strange, but say nothing. Your conscience screams, but your wallet sings a cheerful tune."
       },
       {
-        text: "Weigeren — integriteit heeft zijn prijs.",
+        text: "Refuse — integrity has its price.",
         moral: +15,
-        consequence: "Je weigert met een ferme 'Nee, dank je.' Hij lacht en zegt: 'Je bent veranderd.' Misschien is dat goed. Misschien ben je eindelijk volwassen geworden. Of misschien ben je gewoon saai geworden. Wie weet?"
+        consequence: "You refuse with a firm 'No, thank you.' He laughs and says: 'You've changed.' Maybe that's good. Maybe you've finally grown up. Or maybe you've just become boring. Who knows?"
       }
     ]
   },
   {
     id: "competitor_sabotage",
-    title: "Een Onethisch Voorstel",
-    description: "Een concurrent biedt je geld aan om zijn bar te saboteren. Hij ziet eruit alsof hij net uit een slechte film is gestapt, compleet met een snor die te perfect is om echt te zijn. 'Een paar slechte reviews, wat geruchten... niets persoonlijks, gewoon zaken,' zegt hij alsof hij je vraagt om de krant te halen. 'Wat zeg je?'",
+    title: "An Unethical Proposal",
+    description: "A competitor offers you money to sabotage his bar. He looks as if he just stepped out of a bad movie, complete with a mustache that's too perfect to be real. 'A few bad reviews, some rumors... nothing personal, just business,' he says as if asking you to get the newspaper. 'What do you say?'",
     type: "sketchy",
     choices: [
       {
-        text: "Accepteren — vuil spel, maar winst.",
+        text: "Accept — dirty play, but profit.",
         moral: -18,
         money: 150,
-        consequence: "Je doet het. Het geld is goed, maar je spiegelbeeld kijkt je anders aan alsof het je niet meer herkent. Je vraagt je af of dit is hoe je een slechterik wordt. Langzaam, één slechte keuze per keer."
+        consequence: "You do it. The money is good, but your reflection looks at you differently as if it no longer recognizes you. You wonder if this is how you become a villain. Slowly, one bad choice at a time."
       },
       {
-        text: "Weigeren — eerlijke concurrentie, of niets.",
+        text: "Refuse — fair competition, or nothing.",
         moral: +12,
-        consequence: "Je stuurt hem weg met een ferme 'Nee, dank je.' Hij vertrekt teleurgesteld, alsof hij dit niet vaak hoort. Eerlijkheid wint, zelfs in deze donkere wereld. Je voelt je bijna... trots? Vreemd gevoel."
+        consequence: "You send him away with a firm 'No, thank you.' He leaves disappointed, as if he doesn't hear this often. Honesty wins, even in this dark world. You almost feel... proud? Strange feeling."
       }
     ]
   },
   {
     id: "homeless_person",
-    title: "Een Vreemdeling aan de Deur",
-    description: "Een dakloze man vraagt om een glas water en een warme plek. Hij ziet eruit alsof hij al een tijdje geen goede nacht heeft gehad, maar zijn ogen zijn nog helder. Je personeel kijkt je aan alsof ze wachten op je beslissing. Wat doe je?",
+    title: "A Stranger at the Door",
+    description: "A homeless man asks for a glass of water and a warm place. He looks as if he hasn't had a good night in a while, but his eyes are still clear. Your staff looks at you as if waiting for your decision. What do you do?",
     type: "moral",
     choices: [
       {
-        text: "Helpen — een kleine daad van menselijkheid.",
+        text: "Help — a small act of humanity.",
         moral: +12,
         money: -5,
-        consequence: "Je geeft hem water en een warme hoek. Hij bedankt je met oprechte ogen die suggereren dat hij dit niet vaak meemaakt. Het voelt goed, alsof je net iets goeds hebt gedaan. Vreemd gevoel, maar aangenaam."
+        consequence: "You give him water and a warm corner. He thanks you with sincere eyes that suggest he doesn't experience this often. It feels good, as if you just did something good. Strange feeling, but pleasant."
       },
       {
-        text: "Wegsturen — je hebt geen tijd voor dit.",
+        text: "Send him away — you don't have time for this.",
         moral: -8,
-        consequence: "Je stuurt hem weg met een excuus dat zo slecht is dat zelfs jij het niet gelooft. Hij vertrekt zonder een woord, maar zijn blik zegt genoeg. De stilte is luid, en je geweten fluistert: 'Was dit nodig?'"
+        consequence: "You send him away with an excuse so bad that even you don't believe it. He leaves without a word, but his look says enough. The silence is loud, and your conscience whispers: 'Was this necessary?'"
       }
     ]
   }
@@ -778,6 +693,9 @@ export default function HomePage() {
   const [lastSaveTime, setLastSaveTime] = useState(Date.now());
   const [achievements, setAchievements] = useState<Set<string>>(new Set());
   const [goldenEventActive, setGoldenEventActive] = useState(false);
+  const [totalMoralChoices, setTotalMoralChoices] = useState(0);
+  const [totalCustomersServed, setTotalCustomersServed] = useState(0);
+  const [maxUpgradeLevel, setMaxUpgradeLevel] = useState(0);
 
   // Afgeleide stats op basis van upgrades en actieve drank
   const stats = useMemo(() => {
@@ -968,7 +886,7 @@ export default function HomePage() {
           showSkeletonComment(dialog);
         }
         const drinkName = stats.currentDrink.name.toLowerCase();
-        pushLog(`Je personeel verkocht ${toSell} ${drinkName} voor €${earned.toFixed(0)}.`);
+        pushLog(`Your staff sold ${toSell} ${drinkName} for €${earned.toFixed(0)}.`);
         // Geen morale meer bij auto-verkoop - alleen goede keuzes geven morale
         return prevBeer - toSell * drinkCapacity;
       });
@@ -989,44 +907,7 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Grim Fandango-stijl morele events op willekeurige momenten - AUTOMATISCH BESLISSEN
-  // Nu ZELDZAAM: komen maar af en toe voor zodat de focus idle blijft
-  useEffect(() => {
-    const checkForEvent = () => {
-      const now = Date.now();
-      // Event elke 2-5 minuten (willekeurig)
-      const timeSinceLastEvent = now - lastEventTime;
-      const minInterval = 120000; // 2 minuten
-      const maxInterval = 300000; // 5 minuten
-      
-      if (timeSinceLastEvent >= minInterval) {
-        const randomInterval = minInterval + Math.random() * (maxInterval - minInterval);
-        // Extra kans-check zodat ze echt zeldzaam zijn
-        const shouldTriggerThisTick = Math.random() < 0.35; // ~35% kans als interval gehaald is
-        if (shouldTriggerThisTick && timeSinceLastEvent >= randomInterval && !activeChoice) {
-          const randomEvent = moralEvents[Math.floor(Math.random() * moralEvents.length)];
-          setActiveChoice(randomEvent);
-          setLastEventTime(now);
-          
-          // AUTOMATISCH BESLISSEN na 3 seconden (idle gameplay)
-          setTimeout(() => {
-            setActiveChoice((currentChoice: MoralChoice | null) => {
-              if (currentChoice && currentChoice.id === randomEvent.id) {
-                // Kies automatisch willekeurige keuze (idle gameplay)
-                const autoChoice = Math.floor(Math.random() * randomEvent.choices.length);
-                handleMoralChoice(autoChoice);
-                return null;
-              }
-              return currentChoice;
-            });
-          }, 3000);
-        }
-      }
-    };
-
-    const id = window.setInterval(checkForEvent, 5000); // Check elke 5 seconden
-    return () => window.clearInterval(id);
-  }, [lastEventTime, activeChoice]);
+  // Morale events are now ONLY triggered by talking to customers - removed automatic system
 
   // Fable 3-stijl corruptie/straf systeem - automatische punishments bij lage morale
   useEffect(() => {
@@ -1061,14 +942,26 @@ export default function HomePage() {
   // Golden Events (zoals Cookie Clicker) - willekeurige bonussen
   useEffect(() => {
     const checkGoldenEvent = () => {
-      // 1% kans elke 10 seconden op golden event
+      // 1% chance every 10 seconds for golden event
       if (Math.random() < 0.01 && !goldenEventActive) {
         setGoldenEventActive(true);
-        pushLog("✨ GOLDEN EVENT! 3x bier productie en 2x verkoop prijs voor 30 seconden!");
+        pushLog("✨ GOLDEN EVENT! 3x beer production and 2x sell price for 30 seconds!");
         showSkeletonComment("LUCKY! You found a golden opportunity! Or did it find you?");
+        
+        // Track golden event achievement
+        setAchievements((prev: Set<string>) => {
+          if (!prev.has("golden_moment")) {
+            const newSet = new Set(prev);
+            newSet.add("golden_moment");
+            pushLog("🏆 Achievement: Golden Moment! You experienced a golden event!");
+            return newSet;
+          }
+          return prev;
+        });
+        
         setTimeout(() => {
           setGoldenEventActive(false);
-          pushLog("Golden event is voorbij. Terug naar normaal.");
+          pushLog("Golden event is over. Back to normal.");
         }, 30000);
       }
     };
@@ -1076,34 +969,136 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, [goldenEventActive]);
 
-  // Achievements systeem
+  // Track max upgrade level for achievements - optimized to only update when needed
+  useEffect(() => {
+    const maxLevel = Math.max(...upgrades.map(u => u.level), 0);
+    if (maxLevel > maxUpgradeLevel) {
+      setMaxUpgradeLevel(maxLevel);
+    }
+  }, [upgrades]); // Removed maxUpgradeLevel from deps to prevent unnecessary checks
+
+  // Optimized achievements system - only check when values change significantly
   useEffect(() => {
     const newAchievements: string[] = [];
     
+    // Sales milestones
     if (totalGlassesSold >= 100 && !achievements.has("first_100")) {
       newAchievements.push("first_100");
-      pushLog("🏆 Achievement: Eerste 100 glazen verkocht!");
+      pushLog("🏆 Achievement: First 100 glasses sold!");
     }
     if (totalGlassesSold >= 1000 && !achievements.has("thousand_sold")) {
       newAchievements.push("thousand_sold");
-      pushLog("🏆 Achievement: 1000 glazen verkocht! Je bent een echte bar eigenaar!");
+      pushLog("🏆 Achievement: 1000 glasses sold! You're a real bar owner!");
     }
+    if (totalGlassesSold >= 10000 && !achievements.has("ten_thousand_sold")) {
+      newAchievements.push("ten_thousand_sold");
+      pushLog("🏆 Achievement: 10,000 glasses sold! You're a legend!");
+    }
+    if (totalGlassesSold >= 100000 && !achievements.has("hundred_thousand_sold")) {
+      newAchievements.push("hundred_thousand_sold");
+      pushLog("🏆 Achievement: 100,000 glasses sold! The bar never closes!");
+    }
+    
+    // Money milestones
     if (totalEarned >= 1000 && !achievements.has("thousandaire")) {
       newAchievements.push("thousandaire");
-      pushLog("🏆 Achievement: €1000 totaal verdiend! Je eerste duizend!");
+      pushLog("🏆 Achievement: €1,000 total earned! Your first thousand!");
     }
+    if (totalEarned >= 10000 && !achievements.has("ten_thousandaire")) {
+      newAchievements.push("ten_thousandaire");
+      pushLog("🏆 Achievement: €10,000 total earned! Business is booming!");
+    }
+    if (totalEarned >= 100000 && !achievements.has("hundred_thousandaire")) {
+      newAchievements.push("hundred_thousandaire");
+      pushLog("🏆 Achievement: €100,000 total earned! You're a tycoon!");
+    }
+    if (totalEarned >= 1000000 && !achievements.has("millionaire")) {
+      newAchievements.push("millionaire");
+      pushLog("🏆 Achievement: €1,000,000 total earned! You've made it!");
+    }
+    
+    // Moral achievements
     if (moral >= 100 && !achievements.has("saint")) {
       newAchievements.push("saint");
-      pushLog("🏆 Achievement: Heilige! Je moreel is perfect!");
+      pushLog("🏆 Achievement: Saint! Your moral is perfect!");
+    }
+    if (moral >= 120 && !achievements.has("angel")) {
+      newAchievements.push("angel");
+      pushLog("🏆 Achievement: Angel! You've transcended morality!");
     }
     if (moral <= 20 && !achievements.has("villain")) {
       newAchievements.push("villain");
-      pushLog("🏆 Achievement: Slechterik! Je moreel is geruïneerd!");
+      pushLog("🏆 Achievement: Villain! Your moral is ruined!");
     }
+    if (moral <= 10 && !achievements.has("demon")) {
+      newAchievements.push("demon");
+      pushLog("🏆 Achievement: Demon! You've embraced the darkness!");
+    }
+    if (moral >= 65 && moral <= 75 && !achievements.has("neutral_master")) {
+      newAchievements.push("neutral_master");
+      pushLog("🏆 Achievement: Neutral Master! Perfectly balanced!");
+    }
+    
+    // Prestige achievements
     if (prestigeLevel >= 1 && !achievements.has("first_prestige")) {
       newAchievements.push("first_prestige");
-      pushLog("🏆 Achievement: Eerste Prestige! Je begint opnieuw, maar sterker!");
+      pushLog("🏆 Achievement: First Prestige! You start over, but stronger!");
     }
+    if (prestigeLevel >= 5 && !achievements.has("prestige_master")) {
+      newAchievements.push("prestige_master");
+      pushLog("🏆 Achievement: Prestige Master! You've reset 5 times!");
+    }
+    if (prestigeLevel >= 10 && !achievements.has("prestige_legend")) {
+      newAchievements.push("prestige_legend");
+      pushLog("🏆 Achievement: Prestige Legend! 10 resets completed!");
+    }
+    
+    // Upgrade achievements
+    if (maxUpgradeLevel >= 10 && !achievements.has("upgrade_enthusiast")) {
+      newAchievements.push("upgrade_enthusiast");
+      pushLog("🏆 Achievement: Upgrade Enthusiast! Level 10 upgrade reached!");
+    }
+    if (maxUpgradeLevel >= 25 && !achievements.has("upgrade_master")) {
+      newAchievements.push("upgrade_master");
+      pushLog("🏆 Achievement: Upgrade Master! Level 25 upgrade reached!");
+    }
+    if (maxUpgradeLevel >= 50 && !achievements.has("upgrade_legend")) {
+      newAchievements.push("upgrade_legend");
+      pushLog("🏆 Achievement: Upgrade Legend! Level 50 upgrade reached!");
+    }
+    
+    // Customer interaction achievements
+    if (totalCustomersServed >= 50 && !achievements.has("social_bartender")) {
+      newAchievements.push("social_bartender");
+      pushLog("🏆 Achievement: Social Bartender! 50 customers served!");
+    }
+    if (totalCustomersServed >= 500 && !achievements.has("people_person")) {
+      newAchievements.push("people_person");
+      pushLog("🏆 Achievement: People Person! 500 customers served!");
+    }
+    
+    // Moral choice achievements
+    if (totalMoralChoices >= 10 && !achievements.has("moral_philosopher")) {
+      newAchievements.push("moral_philosopher");
+      pushLog("🏆 Achievement: Moral Philosopher! 10 moral choices made!");
+    }
+    if (totalMoralChoices >= 50 && !achievements.has("ethical_expert")) {
+      newAchievements.push("ethical_expert");
+      pushLog("🏆 Achievement: Ethical Expert! 50 moral choices made!");
+    }
+    
+    // Drink variety achievements
+    const unlockedDrinks = drinks.filter(d => d.unlocked).length;
+    if (unlockedDrinks >= 3 && !achievements.has("drink_collector")) {
+      newAchievements.push("drink_collector");
+      pushLog("🏆 Achievement: Drink Collector! 3 different drinks unlocked!");
+    }
+    if (unlockedDrinks >= 5 && !achievements.has("drink_master")) {
+      newAchievements.push("drink_master");
+      pushLog("🏆 Achievement: Drink Master! All drinks unlocked!");
+    }
+    
+    // Golden event achievement - track separately
     
     if (newAchievements.length > 0) {
       setAchievements((prev: Set<string>) => {
@@ -1112,36 +1107,140 @@ export default function HomePage() {
         return newSet;
       });
     }
-  }, [totalGlassesSold, totalEarned, moral, prestigeLevel, achievements]);
+  }, [totalGlassesSold, totalEarned, moral, prestigeLevel, maxUpgradeLevel, totalCustomersServed, totalMoralChoices, drinks.length, achievements, goldenEventActive]);
+
+  // Skeleton personalities with traits - each has unique personality
+  const skeletonPersonalities: Record<SkeletonPersonality, {
+    name: string;
+    image: string;
+    color: string;
+    traits: {
+      friendliness: number; // 0-100
+      generosity: number; // 0-100
+      patience: number; // 0-100
+      dialogueStyle: "sarcastic" | "friendly" | "mysterious" | "rebellious" | "smooth" | "wicked";
+      catchphrases: string[];
+      personalityDescription: string; // Unique personality description
+    };
+  }> = {
+    deco: {
+      name: "Deco",
+      image: "/img/deco-skeleton.png",
+      color: "#d4a574",
+      traits: {
+        friendliness: 75,
+        generosity: 65,
+        patience: 85,
+        dialogueStyle: "friendly",
+        catchphrases: [
+          "Looking good, barkeep! This place has real style!",
+          "I appreciate the ambiance here. Very classy!",
+          "You know what? This bar has character. I like that.",
+          "The decor here is simply marvelous!",
+          "I'll definitely be coming back. This place is special!"
+        ],
+        personalityDescription: "Deco is a sophisticated skeleton who appreciates fine aesthetics and good manners. Always polite and well-spoken, Deco values quality over quantity and enjoys engaging in pleasant conversation. They're the type who notices the little details that make a place special."
+      }
+    },
+    evil: {
+      name: "Malice",
+      image: "/img/evil-skeleton.png",
+      color: "#8b0000",
+      traits: {
+        friendliness: 15,
+        generosity: 25,
+        patience: 35,
+        dialogueStyle: "wicked",
+        catchphrases: [
+          "Your prices are... interesting. Very interesting.",
+          "I've seen better. Much better. But I suppose this will do.",
+          "This better be worth it, or we'll have... words.",
+          "You know, I could make things difficult for you. Very difficult.",
+          "I don't like waiting. And I really don't like being disappointed."
+        ],
+        personalityDescription: "Malice is a sinister skeleton with a dark sense of humor and a tendency to be demanding. They're always looking for an angle, testing boundaries, and aren't afraid to make threats. Malice enjoys making others uncomfortable and has little patience for incompetence."
+      }
+    },
+    flower: {
+      name: "Bloom",
+      image: "/img/flower-skeleton.png",
+      color: "#8b9a5b",
+      traits: {
+        friendliness: 95,
+        generosity: 90,
+        patience: 95,
+        dialogueStyle: "friendly",
+        catchphrases: [
+          "What a lovely place! I'm so happy to be here!",
+          "You're doing great! Keep up the wonderful work!",
+          "This is such a positive atmosphere! I love it!",
+          "Thank you so much for your kindness! You're amazing!",
+          "I just want to spread some joy today! Life is beautiful!"
+        ],
+        personalityDescription: "Bloom is an incredibly positive and cheerful skeleton who sees the best in everyone and everything. They're generous, patient, and always ready with a kind word or compliment. Bloom genuinely cares about others' wellbeing and tries to make everyone's day a little brighter."
+      }
+    },
+    rebel: {
+      name: "Rebel",
+      image: "/img/rebel-skeleton.png",
+      color: "#c97d60",
+      traits: {
+        friendliness: 55,
+        generosity: 60,
+        patience: 25,
+        dialogueStyle: "rebellious",
+        catchphrases: [
+          "Rules? What rules? I make my own rules!",
+          "I do what I want, when I want! That's just how I roll!",
+          "This place needs more edge! More attitude!",
+          "Conformity is for the weak! I'm my own person!",
+          "You can't tell me what to do! I'm a free spirit!"
+        ],
+        personalityDescription: "Rebel is a non-conformist skeleton who values independence and authenticity above all else. They're impatient with bureaucracy, rules, and anything that feels too 'corporate.' Rebel speaks their mind, doesn't care about social norms, and appreciates places that have character and edge."
+      }
+    },
+    smoking: {
+      name: "Smoke",
+      image: "/img/smoking-skeleton.png",
+      color: "#7a9cc6",
+      traits: {
+        friendliness: 65,
+        generosity: 75,
+        patience: 75,
+        dialogueStyle: "smooth",
+        catchphrases: [
+          "Smooth moves, friend. I like your style.",
+          "Let's make a deal. I'm sure we can work something out.",
+          "You strike me as someone who knows how to do business.",
+          "I appreciate a good negotiation. Win-win situations, you know?",
+          "Quality service deserves quality payment. That's my philosophy."
+        ],
+        personalityDescription: "Smoke is a smooth-talking, business-minded skeleton who values good deals and fair exchanges. They're charismatic, patient, and know how to negotiate. Smoke appreciates professionalism and respects those who can make things happen. They're the type who might tip well if treated right."
+      }
+    },
+    witch: {
+      name: "Mystique",
+      image: "/img/witch-skelton.png",
+      color: "#9d7fb8",
+      traits: {
+        friendliness: 45,
+        generosity: 60,
+        patience: 70,
+        dialogueStyle: "mysterious",
+        catchphrases: [
+          "There's more here than meets the eye... I can sense it.",
+          "Interesting energy in this place. Very interesting indeed.",
+          "I sense something... something ancient. Do you feel it too?",
+          "The spirits are restless tonight. Can you hear them?",
+          "There are forces at work here that most cannot perceive."
+        ],
+        personalityDescription: "Mystique is an enigmatic skeleton with a mystical, otherworldly presence. They speak in riddles, notice things others miss, and seem to have a connection to unseen forces. Mystique is patient and observant, often making cryptic comments that hint at deeper meanings. They appreciate places with history and character."
+      }
+    }
+  };
 
   // Customer spawn systeem - Dave the Diver style
-    const customerNames = [
-    "Detective",
-    "Femme Fatale",
-    "Gangster",
-    "Dame",
-    "Gentleman",
-    "Skeleton",
-    "Bartender",
-    "Singer",
-    "Pianist",
-    "Mob Boss"
-    ];
-    const customerSprites = ["🧑", "👩", "🧔", "👨", "👴", "💀", "🍺", "🎤", "🎹", "🎩"];
-    const customerColors = [
-    "#d4a574",
-    "#9d7fb8",
-    "#7a9cc6",
-    "#c97d60",
-    "#8b9a5b",
-    "#f4e8d8",
-    "#b8946f",
-    "#a68b6b",
-    "#3d2f26",
-    "#2a1f1a"
-    ];
-    // Vaste posities voor barkrukken (in % van de breedte)
-    const stoolPositions = [15, 29, 43, 57, 71, 85];
+  const stoolPositions = [15, 29, 43, 57, 71, 85];
 
   const spawnCustomer = useCallback(() => {
       const maxCustomers = stoolPositions.length; // Max aantal klanten = aantal krukken
@@ -1165,27 +1264,26 @@ export default function HomePage() {
       const targetSeatIndex =
         freeSeats[Math.floor(Math.random() * freeSeats.length)];
 
-    const name =
-      customerNames[Math.floor(Math.random() * customerNames.length)];
-    const sprite =
-      customerSprites[Math.floor(Math.random() * customerSprites.length)];
-    const color =
-      customerColors[Math.floor(Math.random() * customerColors.length)];
-      
-      // Klant komt binnen van links
+    // Random skeleton personality
+    const personalityKeys = Object.keys(skeletonPersonalities) as SkeletonPersonality[];
+    const personality = personalityKeys[Math.floor(Math.random() * personalityKeys.length)];
+    const personalityData = skeletonPersonalities[personality];
+    
+    // Klant komt binnen van links
       const newCustomer: Customer = {
         id: `customer-${Date.now()}-${Math.random()}`,
-        name,
+        name: personalityData.name,
         x: -10, // Start buiten scherm
         // Y-positie grofweg ter hoogte van de barkrukken
         y: 55,
         seatIndex: null,
-        sprite,
+        sprite: personalityData.image,
+        personality,
         opportunity: null,
         opportunityTime: 0,
-        patience: 100,
-        orderValue: stats.pricePerGlass * (1 + Math.random() * 0.5), // 1x tot 1.5x prijs
-        color,
+        patience: 50 + personalityData.traits.patience * 0.5, // Base patience + personality modifier
+        orderValue: stats.pricePerGlass * (1 + personalityData.traits.generosity * 0.01 + Math.random() * 0.3), // Personality affects order value
+        color: personalityData.color,
         walking: true,
         direction: "right"
       };
@@ -1207,11 +1305,19 @@ export default function HomePage() {
           )
         );
         
-      // Geef pas een opportunity zodra de klant echt op de stoel zit
+      // Give opportunity once customer is seated
         setTimeout(() => {
-          const opportunities: CustomerOpportunity[] = ["order", "tip", "special"];
-        const opportunity =
-          opportunities[Math.floor(Math.random() * opportunities.length)];
+          // 25% chance for moral dilemma, 75% chance for normal opportunities
+          const isMoralDilemma = Math.random() < 0.25;
+          let opportunity: CustomerOpportunity;
+          
+          if (isMoralDilemma) {
+            opportunity = "moral_dilemma";
+          } else {
+            const normalOpportunities: CustomerOpportunity[] = ["order", "tip", "special"];
+            opportunity = normalOpportunities[Math.floor(Math.random() * normalOpportunities.length)];
+          }
+          
           setCustomers((prev: Customer[]) =>
             prev.map((c: Customer) =>
               c.id === newCustomer.id
@@ -1221,7 +1327,7 @@ export default function HomePage() {
           );
       }, 800);
       }, 500);
-  }, [customers, customerNames, customerSprites, customerColors, stoolPositions, stats.pricePerGlass]);
+  }, [customers, stoolPositions, stats.pricePerGlass]);
 
   useEffect(() => {
     // Automatisch af en toe een klant binnenlaten
@@ -1267,15 +1373,15 @@ export default function HomePage() {
     const handleCustomers = () => {
       setCustomers((prev: Customer[]) => {
         return prev.map((c: Customer) => {
-          // Automatisch klanten met opportunities afhandelen
-          if (c.opportunity && !activeCustomerQuest) {
-            // 50% + (level * 10%) kans om automatisch te serveren
+          // Automatically handle customers with opportunities (but NOT moral_dilemma - those need player interaction)
+          if (c.opportunity && c.opportunity !== "moral_dilemma" && !activeCustomerQuest) {
+            // 50% + (level * 10%) chance to automatically serve
             const autoChance = 0.5 + (autoServiceLevel * 0.1);
             if (Math.random() < autoChance) {
-              // Automatisch de eerste keuze maken (normale service)
+              // Automatically make the first choice (normal service)
               const quest = generateCustomerQuest(c);
               if (quest.choices.length > 0) {
-                const autoChoice = quest.choices[0]; // Eerste keuze = normale service
+                const autoChoice = quest.choices[0]; // First choice = normal service
                 
                 adjustMoral(autoChoice.moral || 0);
                 const moneyAmount = autoChoice.money || 0;
@@ -1288,7 +1394,7 @@ export default function HomePage() {
                   setBeer((b: number) => Math.max(0, b + (autoChoice.beer || 0)));
                 }
                 
-                pushLog(`[AUTO] ${c.name} werd automatisch geholpen. +€${(autoChoice.money || 0).toFixed(0)}`);
+                pushLog(`[AUTO] ${c.name} was automatically helped. +€${(autoChoice.money || 0).toFixed(0)}`);
                 
                 return { ...c, opportunity: null, walking: true, direction: "left" as const };
               }
@@ -1315,7 +1421,7 @@ export default function HomePage() {
           // Koop automatisch als je 2x de kosten hebt (veiligheidsmarge)
           if (money >= cost * 2 && Math.random() < (0.1 * autoUpgradeLevel)) {
             setMoney((m: number) => Math.max(0, m - cost));
-            pushLog(`[AUTO] Upgrade gekocht: ${upgrade.name} (level ${upgrade.level + 1})`);
+            pushLog(`[AUTO] Upgrade purchased: ${upgrade.name} (level ${upgrade.level + 1})`);
             return { ...upgrade, level: upgrade.level + 1 };
           }
           return upgrade;
@@ -1345,7 +1451,7 @@ export default function HomePage() {
 
       if (bestDrink.type !== activeDrink) {
         setActiveDrink(bestDrink.type);
-        pushLog(`[AUTO] Switched to ${bestDrink.name} voor maximale winst.`);
+        pushLog(`[AUTO] Switched to ${bestDrink.name} for maximum profit.`);
       }
     };
 
@@ -1368,57 +1474,111 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [upgrades, stats.pricePerGlass]);
 
-  // Generate customer quest based on opportunity type
+  // Helper function for personality-based dialogue
+  function getPersonalityDialogue(customer: Customer, baseText: string, style: string): string {
+    const personalityData = skeletonPersonalities[customer.personality];
+    const name = customer.name;
+    
+    switch (style) {
+      case "friendly":
+        return baseText.replace('"Hey barkeeper', `"Hey! ${name} here. Hey barkeeper`);
+      case "wicked":
+        return baseText.replace('"Hey barkeeper', `"*${name} smiles sinisterly* Hey barkeeper`);
+      case "mysterious":
+        return baseText.replace('"Hey barkeeper', `"*${name} whispers* Hey barkeeper`);
+      case "rebellious":
+        return baseText.replace('"Hey barkeeper', `"Yo! ${name} here. Hey barkeeper`);
+      case "smooth":
+        return baseText.replace('"Hey barkeeper', `"*${name} looks at you with a smile* Hey barkeeper`);
+      case "sarcastic":
+        return baseText.replace('"Hey barkeeper', `"*${name} sighs* Hey barkeeper`);
+      default:
+        return baseText;
+    }
+  }
+
+  function getPersonalityResponse(customer: Customer, baseText: string, style: string): string {
+    const personalityData = skeletonPersonalities[customer.personality];
+    const name = customer.name;
+    
+    if (style === "friendly") {
+      return `${name} smiles broadly: "${baseText}"`;
+    } else if (style === "wicked") {
+      return `${name} grins: "${baseText}"`;
+    } else if (style === "mysterious") {
+      return `${name} mutters: "${baseText}"`;
+    } else if (style === "rebellious") {
+      return `${name} nods: "${baseText}"`;
+    } else if (style === "smooth") {
+      return `${name} smiles: "${baseText}"`;
+    }
+    return baseText;
+  }
+
+  // Generate customer quest based on opportunity type and personality
+  // Note: moral_dilemma opportunities don't use this function - they trigger moral events directly
   function generateCustomerQuest(customer: Customer): CustomerQuest {
+    // This should never be called with moral_dilemma, but handle it just in case
+    if (customer.opportunity === "moral_dilemma" || !customer.opportunity) {
+      throw new Error("Cannot generate quest for moral_dilemma or null opportunity");
+    }
+    
     const baseValue = customer.orderValue;
-    const questTemplates = {
+    const personalityData = skeletonPersonalities[customer.personality];
+    const dialogueStyle = personalityData.traits.dialogueStyle;
+    
+    // Personality affects quest generation
+    const friendlinessMod = personalityData.traits.friendliness / 100;
+    const generosityMod = personalityData.traits.generosity / 100;
+    
+    const questTemplates: Record<Exclude<CustomerOpportunity, "moral_dilemma" | null>, any> = {
       order: [
         {
-          title: `${customer.name} wil een drankje`,
-          description: `"Hey barkeeper, ik wil graag een ${stats.currentDrink.name.toLowerCase()}. Wat kost dat tegenwoordig?"`,
+          title: `${customer.name} wants a drink`,
+          description: getPersonalityDialogue(customer, `"Hey barkeeper, I'd like a ${stats.currentDrink.name.toLowerCase()}. What does that cost these days?"`, dialogueStyle),
           choices: [
             {
-              text: "Normale prijs vragen (€" + baseValue.toFixed(0) + ")",
-              moral: 0,
+              text: "Charge normal price (€" + baseValue.toFixed(0) + ")",
+              moral: Math.floor(2 * friendlinessMod),
               money: baseValue,
-              consequence: `${customer.name} betaalt en is tevreden.`
+              consequence: getPersonalityResponse(customer, `${customer.name} pays and is satisfied.`, dialogueStyle)
             },
             {
-              text: "Hogere prijs vragen (€" + (baseValue * 1.5).toFixed(0) + ")",
-              moral: -3,
+              text: "Charge higher price (€" + (baseValue * 1.5).toFixed(0) + ")",
+              moral: -3 - Math.floor(2 * (1 - friendlinessMod)),
               money: baseValue * 1.5,
-              consequence: `${customer.name} betaalt, maar kijkt je wantrouwend aan.`
+              consequence: getPersonalityResponse(customer, `${customer.name} pays, but looks at you suspiciously.`, dialogueStyle)
             },
             {
-              text: "Gratis geven (vriendelijkheid)",
-              moral: 5,
+              text: "Give it for free (kindness)",
+              moral: 5 + Math.floor(3 * friendlinessMod),
               money: 0,
-              consequence: `${customer.name} is verrast en belooft terug te komen.`
+              consequence: getPersonalityResponse(customer, `${customer.name} is surprised and promises to come back.`, dialogueStyle)
             }
           ],
           type: "order" as const
         },
         {
-          title: `${customer.name} heeft een vraag`,
-          description: `"Ik heb gehoord dat je hier de beste ${stats.currentDrink.name.toLowerCase()} serveert. Klopt dat?"`,
+          title: `${customer.name} has a question`,
+          description: `"I've heard you serve the best ${stats.currentDrink.name.toLowerCase()} here. Is that true?"`,
           choices: [
             {
-              text: "Ja, en het kost €" + baseValue.toFixed(0),
+              text: "Yes, and it costs €" + baseValue.toFixed(0),
               moral: 0,
               money: baseValue,
-              consequence: `${customer.name} bestelt en is tevreden.`
+              consequence: `${customer.name} orders and is satisfied.`
             },
             {
-              text: "Ja, maar het is premium (€" + (baseValue * 2).toFixed(0) + ")",
+              text: "Yes, but it's premium (€" + (baseValue * 2).toFixed(0) + ")",
               moral: -2,
               money: baseValue * 2,
-              consequence: `${customer.name} betaalt, maar twijfelt aan je eerlijkheid.`
+              consequence: `${customer.name} pays, but doubts your honesty.`
             },
             {
-              text: "Nee, maar ik kan je iets beters aanbieden",
+              text: "No, but I can offer you something better",
               moral: 2,
               money: baseValue * 0.8,
-              consequence: `${customer.name} waardeert je eerlijkheid.`
+              consequence: `${customer.name} appreciates your honesty.`
             }
           ],
           type: "order" as const
@@ -1426,26 +1586,26 @@ export default function HomePage() {
       ],
       tip: [
         {
-          title: `${customer.name} heeft geld te besteden`,
-          description: `"Ik heb gehoord dat je goede service geeft. Als ik goed betaal, krijg ik dan iets speciaals?"`,
+          title: `${customer.name} has money to spend`,
+          description: `"I've heard you give good service. If I pay well, will I get something special?"`,
           choices: [
             {
-              text: "Normale service voor normale prijs (€" + baseValue.toFixed(0) + ")",
+              text: "Normal service for normal price (€" + baseValue.toFixed(0) + ")",
               moral: 0,
               money: baseValue,
-              consequence: `${customer.name} is tevreden met de service.`
+              consequence: `${customer.name} is satisfied with the service.`
             },
             {
-              text: "Extra service voor extra fooi (€" + (baseValue * 2.5).toFixed(0) + ")",
+              text: "Extra service for extra tip (€" + (baseValue * 2.5).toFixed(0) + ")",
               moral: 1,
               money: baseValue * 2.5,
-              consequence: `${customer.name} geeft een grote fooi en komt terug!`
+              consequence: `${customer.name} gives a big tip and comes back!`
             },
             {
-              text: "Premium behandeling, maar vraag veel (€" + (baseValue * 3).toFixed(0) + ")",
+              text: "Premium treatment, but charge a lot (€" + (baseValue * 3).toFixed(0) + ")",
               moral: -4,
               money: baseValue * 3,
-              consequence: `${customer.name} betaalt, maar voelt zich opgelicht.`
+              consequence: `${customer.name} pays, but feels cheated.`
             }
           ],
           type: "tip" as const
@@ -1453,26 +1613,26 @@ export default function HomePage() {
       ],
       special: [
         {
-          title: `${customer.name} wil iets speciaals`,
-          description: `"Ik zoek iets unieks. Heb je iets bijzonders? Ik betaal goed."`,
+          title: `${customer.name} wants something special`,
+          description: `"I'm looking for something unique. Do you have anything special? I'll pay well."`,
           choices: [
             {
-              text: "Speciale cocktail maken (€" + (baseValue * 2).toFixed(0) + ")",
+              text: "Make a special cocktail (€" + (baseValue * 2).toFixed(0) + ")",
               moral: 2,
               money: baseValue * 2,
-              consequence: `${customer.name} is onder de indruk en geeft een grote fooi!`
+              consequence: `${customer.name} is impressed and gives a big tip!`
             },
             {
-              text: "Gewoon duur verkopen (€" + (baseValue * 4).toFixed(0) + ")",
+              text: "Just sell it expensive (€" + (baseValue * 4).toFixed(0) + ")",
               moral: -5,
               money: baseValue * 4,
-              consequence: `${customer.name} betaalt, maar voelt zich bedrogen.`
+              consequence: `${customer.name} pays, but feels deceived.`
             },
             {
-              text: "Eerlijk zijn over wat je hebt (€" + baseValue.toFixed(0) + ")",
+              text: "Be honest about what you have (€" + baseValue.toFixed(0) + ")",
               moral: 3,
               money: baseValue,
-              consequence: `${customer.name} respecteert je eerlijkheid en komt terug.`
+              consequence: `${customer.name} respects your honesty and comes back.`
             }
           ],
           type: "special" as const
@@ -1480,27 +1640,27 @@ export default function HomePage() {
       ],
       complaint: [
         {
-          title: `${customer.name} klaagt`,
-          description: `"Dit drankje smaakt niet goed. Wat ga je hieraan doen?"`,
+          title: `${customer.name} complains`,
+          description: `"This drink doesn't taste good. What are you going to do about it?"`,
           choices: [
             {
-              text: "Nieuwe maken en excuses aanbieden",
+              text: "Make a new one and apologize",
               moral: 3,
               money: 0,
               beer: -stats.drinkCapacity,
-              consequence: `${customer.name} accepteert je excuses en blijft klant.`
+              consequence: `${customer.name} accepts your apology and stays a customer.`
             },
             {
-              text: "Geld teruggeven",
+              text: "Give a refund",
               moral: 2,
               money: -baseValue,
-              consequence: `${customer.name} waardeert je service en komt terug.`
+              consequence: `${customer.name} appreciates your service and comes back.`
             },
             {
-              text: "Negeren en zeggen dat het normaal is",
+              text: "Ignore and say it's normal",
               moral: -4,
               money: baseValue,
-              consequence: `${customer.name} loopt boos weg en vertelt anderen.`
+              consequence: `${customer.name} walks away angry and tells others.`
             }
           ],
           type: "complaint" as const
@@ -1508,7 +1668,9 @@ export default function HomePage() {
       ]
     };
 
-    const templates = questTemplates[customer.opportunity!];
+    // TypeScript guard: we've already checked that opportunity is not moral_dilemma
+    const opportunity = customer.opportunity as Exclude<CustomerOpportunity, "moral_dilemma" | null>;
+    const templates = questTemplates[opportunity];
     const template = templates[Math.floor(Math.random() * templates.length)];
     
     return {
@@ -1519,13 +1681,49 @@ export default function HomePage() {
     };
   }
 
-  // Handle customer opportunity click - show quest modal
+  // Handle customer opportunity click - show quest modal OR morale event
+  // IMPORTANT: Morale events ONLY trigger when customer has "moral_dilemma" opportunity
   function handleCustomerClick(customerId: string) {
     const customer = customers.find((c: Customer) => c.id === customerId);
-    if (!customer || !customer.opportunity || activeCustomerQuest) return;
+    if (!customer || activeCustomerQuest || activeChoice) return;
 
-    const quest = generateCustomerQuest(customer);
-    setActiveCustomerQuest(quest);
+    // ONLY trigger morale event if customer has moral_dilemma opportunity
+    if (customer.opportunity === "moral_dilemma") {
+      // Trigger a morale event - this customer has a moral dilemma to discuss
+      const randomEvent = moralEvents[Math.floor(Math.random() * moralEvents.length)];
+      setActiveChoice(randomEvent);
+      setLastEventTime(Date.now());
+      
+      // Show personality-based comment
+      const personalityData = skeletonPersonalities[customer.personality];
+      const catchphrase = personalityData.traits.catchphrases[
+        Math.floor(Math.random() * personalityData.traits.catchphrases.length)
+      ];
+      pushLog(`${customer.name} says: "${catchphrase}"`);
+      pushLog(`${customer.name} has a moral dilemma they need to discuss with you...`);
+      showSkeletonComment(`${customer.name} needs your help with a difficult decision...`);
+      
+      // Remove the opportunity after triggering
+      setCustomers((prev: Customer[]) =>
+        prev.map((c: Customer) =>
+          c.id === customerId
+            ? { ...c, opportunity: null }
+            : c
+        )
+      );
+    } else if (customer.opportunity) {
+      // Normal customer quest
+      const quest = generateCustomerQuest(customer);
+      setActiveCustomerQuest(quest);
+    } else {
+      // No opportunity yet, just chat
+      const personalityData = skeletonPersonalities[customer.personality];
+      const catchphrase = personalityData.traits.catchphrases[
+        Math.floor(Math.random() * personalityData.traits.catchphrases.length)
+      ];
+      pushLog(`${customer.name}: "${catchphrase}"`);
+      showSkeletonComment(`${customer.name} is waiting...`);
+    }
   }
 
   // Handle customer quest choice
@@ -1552,10 +1750,13 @@ export default function HomePage() {
       setTotalGlassesSold((g: number) => g + 1);
     }
 
+    // Track customer served
+    setTotalCustomersServed((prev: number) => prev + 1);
+
     // Log the choice
     const moralText = choice.moral > 0 ? `+${choice.moral}` : `${choice.moral}`;
     pushLog(`[${activeCustomerQuest.customerName}] ${activeCustomerQuest.title}`);
-    pushLog(`→ ${choice.text} (Moreel: ${moralText})`);
+    pushLog(`→ ${choice.text} (Moral: ${moralText})`);
     if (choice.consequence) {
       pushLog(`→ ${choice.consequence}`);
     }
@@ -1580,7 +1781,7 @@ export default function HomePage() {
   // Prestige systeem - reset voor permanente bonussen
   function handlePrestige() {
     if (totalEarned < 10000) {
-      pushLog("Je hebt minimaal €10.000 totaal verdiend nodig voor Prestige!");
+      pushLog("You need at least €10,000 total earned for Prestige!");
       return;
     }
     
@@ -1747,29 +1948,35 @@ export default function HomePage() {
     const choice = activeChoice.choices[choiceIndex];
     if (!choice) return;
 
-    // Pas gevolgen toe
+    // Apply consequences
     adjustMoral(choice.moral);
     const eventMoney = choice.money ?? 0;
     const eventBeer = choice.beer ?? 0;
     if (eventMoney !== 0) {
       setMoney((m: number) => Math.max(0, m + eventMoney));
+      if (eventMoney > 0) {
+        setTotalEarned((te: number) => te + eventMoney);
+      }
     }
     if (eventBeer !== 0) {
       setBeer((b: number) => Math.max(0, b + eventBeer));
     }
 
-    // Log de keuze en gevolg met sarcastische dialoog
+    // Track moral choice made
+    setTotalMoralChoices((prev: number) => prev + 1);
+
+    // Log the choice and consequence with sarcastic dialogue
     const moralText = choice.moral > 0 ? `+${choice.moral}` : `${choice.moral}`;
     const newMoral = Math.min(130, Math.max(0, moral + choice.moral));
-    // Bij morele keuzes altijd skeleton comment (zijn belangrijk)
+    // Always skeleton comment for moral choices (they're important)
     const dialog = getRandomDialog(choice.moral > 0 ? "sell" : "sell", newMoral);
     showSkeletonComment(dialog);
-    pushLog(`[KEUZE] ${activeChoice.title}: ${choice.text} (Moreel: ${moralText})`);
+    pushLog(`[CHOICE] ${activeChoice.title}: ${choice.text} (Moral: ${moralText})`);
     if (choice.consequence) {
       pushLog(`→ ${choice.consequence}`);
     }
 
-    // Sluit de keuze
+    // Close the choice
     setActiveChoice(null);
   }
 
@@ -1871,7 +2078,7 @@ export default function HomePage() {
         const dialog = getRandomDialog("upgrade", moral);
         showSkeletonComment(dialog);
       }
-      pushLog(`Upgrade gekocht: ${upgrade.name} (level ${upgrade.level + 1}) voor €${cost}.`);
+      pushLog(`Upgrade purchased: ${upgrade.name} (level ${upgrade.level + 1}) for €${cost}.`);
       // Geen morale meer bij upgrades - alleen goede keuzes geven morale
       return prev.map((u: Upgrade) =>
         u.id === upgradeId ? { ...u, level: u.level + 1 } : u
@@ -1891,76 +2098,13 @@ export default function HomePage() {
 
   return (
     <main className="dave-layout">
-      {/* Skeleton Commentator - Grim Fandango Style */}
-      {skeletonVisible && (
-        <div className="skeleton-commentator">
-          <div className="skeleton-avatar">
-            <div className="skeleton-head">💀</div>
-            <div className="skeleton-body">☠️</div>
-          </div>
-          <div className="skeleton-speech-bubble">
-            <div className="skeleton-speech-text">{skeletonComment}</div>
-          </div>
-        </div>
-      )}
+      <SkeletonCommentator visible={skeletonVisible} comment={skeletonComment} />
       
-      {/* Bar Scene - Dave the Diver Style */}
-      <div className="bar-scene">
-        <div className="bar-controls">
-          <button className="btn-small" onClick={spawnCustomer}>
-            Laat klant binnen
-          </button>
-        </div>
-        <div className="bar-background">
-          <div className="bar-counter"></div>
-          <div className="bar-stools">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bar-stool" style={{ left: `${15 + i * 14}%` }}></div>
-            ))}
-          </div>
-          
-          {/* Customers */}
-          {customers.map((customer: Customer) => (
-            <div
-              key={customer.id}
-              className="customer-pixel"
-              style={{
-                left: `${customer.x}%`,
-                top: `${customer.y}%`,
-                color: customer.color,
-                cursor: customer.opportunity ? 'pointer' : 'default',
-                transform: customer.direction === 'left' ? 'scaleX(-1)' : 'none',
-                transition: customer.walking ? 'left 0.5s linear' : 'none'
-              }}
-              onClick={() => handleCustomerClick(customer.id)}
-            >
-              <div className="customer-sprite">{customer.sprite}</div>
-              <div className="customer-name">{customer.name}</div>
-              
-              {/* Opportunity Icon */}
-              {customer.opportunity && (
-                <div className="customer-opportunity">
-                  {customer.opportunity === "order" && "🍺"}
-                  {customer.opportunity === "tip" && "💰"}
-                  {customer.opportunity === "special" && "⭐"}
-                  {customer.opportunity === "complaint" && "😠"}
-                </div>
-              )}
-              
-              {/* Patience Bar */}
-              <div className="customer-patience">
-                <div 
-                  className="customer-patience-fill"
-                  style={{ 
-                    width: `${customer.patience}%`,
-                    background: customer.patience > 50 ? '#8b9a5b' : customer.patience > 25 ? '#c97d60' : '#8b0000'
-                  }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <BarScene
+        customers={customers}
+        onCustomerClick={handleCustomerClick}
+        onSpawnCustomer={spawnCustomer}
+      />
 
       <div className="app-shell">
         {/* Linker zijde: bier en tap */}
@@ -2160,280 +2304,54 @@ export default function HomePage() {
 
         {/* Rechter zijde: upgrades + moreel/log (voor nu basic, later uitbreiden) */}
         <section className="panel">
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Upgrades</div>
-                <div className="card-subtitle">
-                  Vergelijkbare structuur als je eerdere game: kosten schalen per
-                  level en beïnvloeden meerdere stats.
-                </div>
-              </div>
-            </div>
+          <UpgradesPanel
+            upgrades={upgrades}
+            money={money}
+            onBuyUpgrade={handleBuyUpgrade}
+            calculateUpgradeCost={calculateUpgradeCost}
+          />
 
-            <div className="upgrades-list">
-              {upgrades.map((upgrade: Upgrade) => {
-                const cost = calculateUpgradeCost(upgrade);
-                const canAfford = money >= cost;
-                return (
-                  <div key={upgrade.id} className="upgrade-row">
-                    <div className="upgrade-main">
-                      <div className="upgrade-name">{upgrade.name}</div>
-                      <div className="upgrade-meta">
-                        <span className="upgrade-chip">
-                          <strong>{upgrade.category}</strong>
-                        </span>
-                        <span>{upgrade.description}</span>
-                      </div>
-                      <div className="upgrade-level">
-                        Level: <strong>{upgrade.level}</strong>
-                      </div>
-                    </div>
-                    <div className="upgrade-actions">
-                      <div className="upgrade-price">€{cost}</div>
-                      <button
-                        className="btn-small btn-small-primary"
-                        onClick={() => handleBuyUpgrade(upgrade.id)}
-                        disabled={!canAfford}
-                      >
-                        Koop
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <MoralLogPanel
+            moralEffective={stats.moralEffective}
+            log={log}
+          />
 
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Moreel & Event Log</div>
-                <div className="card-subtitle">
-                  In deze bar telt elke keuze. Morele dilemma's verschijnen wanneer je het minst verwacht.
-                  Kies wijs, of kies snel — beide hebben hun prijs.
-                </div>
-              </div>
-            </div>
-
-            <div className="moral-meter">
-              <div className="moral-row">
-                <span className="section-label">Team Moreel</span>
-                <span className="moral-value">{stats.moralEffective.toFixed(0)}%</span>
-              </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-bar-fill"
-                  style={{
-                    width: `${Math.min(100, stats.moralEffective)}%`,
-                    boxShadow:
-                      stats.moralEffective < 40
-                        ? "0 0 24px rgba(248, 113, 113, 0.45)"
-                        : stats.moralEffective > 90
-                          ? "0 0 24px rgba(52, 211, 153, 0.5)"
-                          : "0 0 24px rgba(251, 191, 36, 0.35)"
-                  }}
-                />
-                <div className="progress-bar-overlay" />
-              </div>
-            </div>
-
-            <div className="log-list">
-              {log.map((entry: LogEntry) => (
-                <div key={entry.id} className="log-entry">
-                  {entry.message}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Prestige & Achievements Card */}
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Prestige & Achievements</div>
-                <div className="card-subtitle">
-                  Reset je progress voor permanente bonussen. Cookie Clicker-stijl!
-                </div>
-              </div>
-            </div>
-
-            <div className="prestige-section">
-              <div className="prestige-info">
-                <div className="metric">
-                  <span className="metric-label">Prestige Level</span>
-                  <span className="metric-value">{prestigeLevel}</span>
-                </div>
-                <div className="metric">
-                  <span className="metric-label">Prestige Points</span>
-                  <span className="metric-value">{prestigePoints}</span>
-                </div>
-                <div className="metric">
-                  <span className="metric-label">Totaal Verdiend</span>
-                  <span className="metric-value">€{totalEarned.toFixed(0)}</span>
-                </div>
-              </div>
-              
-              <div className="prestige-bonus">
-                <div className="section-label">Prestige Bonus</div>
-                <div className="metric-value">+{prestigePoints * 10}% op alles</div>
-              </div>
-
-              <button 
-                className={`tap-button ${totalEarned >= 10000 ? "" : "disabled"}`}
-                onClick={handlePrestige}
-                disabled={totalEarned < 10000}
-              >
-                Prestige ({Math.floor(totalEarned / 10000)} punten)
-              </button>
-
-              {goldenEventActive && (
-                <div className="golden-event-indicator">
-                  ✨ GOLDEN EVENT ACTIEF! 3x bier, 2x prijs!
-                </div>
-              )}
-
-              <div className="achievements-section">
-                <div className="section-label">Achievements ({achievements.size})</div>
-                <div className="achievements-list">
-                  {achievements.has("first_100") && <span className="achievement-badge">🏆 100 Glazen</span>}
-                  {achievements.has("thousand_sold") && <span className="achievement-badge">🏆 1000 Glazen</span>}
-                  {achievements.has("thousandaire") && <span className="achievement-badge">🏆 €1000</span>}
-                  {achievements.has("saint") && <span className="achievement-badge">🏆 Heilige</span>}
-                  {achievements.has("villain") && <span className="achievement-badge">🏆 Slechterik</span>}
-                  {achievements.has("first_prestige") && <span className="achievement-badge">🏆 Prestige</span>}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AchievementsPanel
+            achievements={achievements}
+            prestigeLevel={prestigeLevel}
+            prestigePoints={prestigePoints}
+            totalEarned={totalEarned}
+            goldenEventActive={goldenEventActive}
+            onPrestige={handlePrestige}
+          />
         </section>
       </div>
 
-      {/* Grim Fandango-stijl Morele Keuze Modal */}
       {activeChoice && (
-        <div className="modal-overlay" onClick={() => setActiveChoice(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{activeChoice.title}</h2>
-              <span className={`modal-type modal-type-${activeChoice.type}`}>
-                {activeChoice.type === "sketchy" && "🔍 Sketchy Deal"}
-                {activeChoice.type === "moral" && "⚖️ Morele Keuze"}
-                {activeChoice.type === "opportunity" && "💎 Kans"}
-                {activeChoice.type === "dilemma" && "🤔 Dilemma"}
-              </span>
-            </div>
-            <p className="modal-description">{activeChoice.description}</p>
-            <div className="modal-choices">
-              {activeChoice.choices.map((choice: typeof activeChoice.choices[0], idx: number) => (
-                <button
-                  key={idx}
-                  className={`modal-choice ${
-                    choice.moral < 0 ? "modal-choice-negative" : "modal-choice-positive"
-                  }`}
-                  onClick={() => handleMoralChoice(idx)}
-                >
-                  <div className="modal-choice-text">{choice.text}</div>
-                  <div className="modal-choice-effects">
-                    {choice.moral !== 0 && (
-                      <span className={`modal-effect ${choice.moral > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Moreel: {choice.moral > 0 ? "+" : ""}{choice.moral}
-                      </span>
-                    )}
-                    {choice.money !== undefined && (
-                      <span className={`modal-effect ${choice.money > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Geld: {choice.money > 0 ? "+" : ""}€{choice.money}
-                      </span>
-                    )}
-                    {choice.beer !== undefined && (
-                      <span className={`modal-effect ${choice.beer > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Bier: {choice.beer > 0 ? "+" : ""}{choice.beer}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <button className="modal-close" onClick={() => setActiveChoice(null)}>
-              Later beslissen (geen gevolgen)
-            </button>
-          </div>
-        </div>
+        <MoralChoiceModal
+          activeChoice={activeChoice}
+          onClose={() => setActiveChoice(null)}
+          onChoice={handleMoralChoice}
+        />
       )}
 
-      {/* Customer Quest Modal */}
       {activeCustomerQuest && (
-        <div className="modal-overlay" onClick={() => {
-          // Customer leaves if you close without choosing
-          setCustomers((prev: Customer[]) =>
-            prev.map((c: Customer) =>
-              c.id === activeCustomerQuest.customerId
-                ? { ...c, opportunity: null, walking: true, direction: "left" as const }
-                : c
-            )
-          );
-          setActiveCustomerQuest(null);
-        }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2rem' }}>{activeCustomerQuest.customerSprite}</span>
-                <h2 className="modal-title">{activeCustomerQuest.title}</h2>
-              </div>
-              <span className={`modal-type modal-type-${activeCustomerQuest.type}`}>
-                {activeCustomerQuest.type === "order" && "🍺 Bestelling"}
-                {activeCustomerQuest.type === "tip" && "💰 Fooi"}
-                {activeCustomerQuest.type === "special" && "⭐ Speciaal"}
-                {activeCustomerQuest.type === "complaint" && "😠 Klacht"}
-                {activeCustomerQuest.type === "dilemma" && "🤔 Dilemma"}
-              </span>
-            </div>
-            <p className="modal-description">{activeCustomerQuest.description}</p>
-            <div className="modal-choices">
-              {activeCustomerQuest.choices.map((choice: typeof activeCustomerQuest.choices[0], idx: number) => (
-                <button
-                  key={idx}
-                  className={`modal-choice ${
-                    choice.moral < 0 ? "modal-choice-negative" : "modal-choice-positive"
-                  }`}
-                  onClick={() => handleCustomerQuestChoice(idx)}
-                >
-                  <div className="modal-choice-text">{choice.text}</div>
-                  <div className="modal-choice-effects">
-                    {choice.moral !== 0 && (
-                      <span className={`modal-effect ${choice.moral > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Moreel: {choice.moral > 0 ? "+" : ""}{choice.moral}
-                      </span>
-                    )}
-                    {choice.money !== undefined && (
-                      <span className={`modal-effect ${choice.money > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Geld: {choice.money > 0 ? "+" : ""}€{choice.money}
-                      </span>
-                    )}
-                    {choice.beer !== undefined && (
-                      <span className={`modal-effect ${choice.beer > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Bier: {choice.beer > 0 ? "+" : ""}{choice.beer}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <button className="modal-close" onClick={() => {
-              // Customer leaves if you refuse
-              setCustomers((prev: Customer[]) =>
-                prev.map((c: Customer) =>
-                  c.id === activeCustomerQuest.customerId
-                    ? { ...c, opportunity: null, walking: true, direction: "left" as const }
-                    : c
-                )
-              );
-              pushLog(`${activeCustomerQuest.customerName} ging weg zonder te bestellen.`);
-              setActiveCustomerQuest(null);
-            }}>
-              Weigeren (klant gaat weg)
-            </button>
-          </div>
-        </div>
+        <CustomerQuestModal
+          quest={activeCustomerQuest}
+          onClose={() => {
+            // Customer leaves if you close without choosing
+            setCustomers((prev: Customer[]) =>
+              prev.map((c: Customer) =>
+                c.id === activeCustomerQuest.customerId
+                  ? { ...c, opportunity: null, walking: true, direction: "left" as const }
+                  : c
+              )
+            );
+            pushLog(`${activeCustomerQuest.customerName} left without ordering.`);
+            setActiveCustomerQuest(null);
+          }}
+          onChoice={handleCustomerQuestChoice}
+        />
       )}
     </main>
   );
