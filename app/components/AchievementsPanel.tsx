@@ -23,10 +23,7 @@ export default function AchievementsPanel({
     <div className="card">
       <div className="card-header">
         <div>
-          <div className="card-title">Prestige & Achievements</div>
-          <div className="card-subtitle">
-            Reset your progress for permanent bonuses. Cookie Clicker style!
-          </div>
+          <div className="card-title">Achievements</div>
         </div>
       </div>
 

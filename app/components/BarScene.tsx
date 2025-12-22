@@ -7,15 +7,24 @@ import type { Customer as CustomerType } from "../types";
 interface BarSceneProps {
   customers: CustomerType[];
   onCustomerClick: (customerId: string) => void;
-  onSpawnCustomer: () => void;
+  barOpen: boolean;
+  onToggleBar: () => void;
 }
 
-export default function BarScene({ customers, onCustomerClick, onSpawnCustomer }: BarSceneProps) {
+export default function BarScene({ customers, onCustomerClick, barOpen, onToggleBar }: BarSceneProps) {
   return (
     <div className="bar-scene">
       <div className="bar-controls">
-        <button className="btn-small" onClick={onSpawnCustomer}>
-          Let Customer In
+        <button 
+          className={`btn-small ${barOpen ? "btn-small-primary" : ""}`}
+          onClick={onToggleBar}
+          style={{ 
+            backgroundColor: barOpen ? "rgba(34, 197, 94, 0.2)" : "rgba(239, 68, 68, 0.2)",
+            borderColor: barOpen ? "rgba(34, 197, 94, 0.8)" : "rgba(239, 68, 68, 0.8)",
+            color: barOpen ? "#86efac" : "#fca5a5"
+          }}
+        >
+          {barOpen ? "🟢 OPEN" : "🔴 CLOSED"}
         </button>
       </div>
       <div className="bar-background">

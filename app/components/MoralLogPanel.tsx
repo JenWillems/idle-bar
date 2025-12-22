@@ -9,46 +9,62 @@ interface MoralLogPanelProps {
 }
 
 export default function MoralLogPanel({ moralEffective, log }: MoralLogPanelProps) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div>
-          <div className="card-title">Moral & Event Log</div>
-          <div className="card-subtitle">
-            In this bar, every choice counts. Moral dilemmas appear when you least expect them.
-            Choose wisely, or choose quickly — both have their price.
-          </div>
-        </div>
-      </div>
+  const getMoralColor = () => {
+    if (moralEffective < 40) return '#c97d60';
+    if (moralEffective > 90) return '#8b9a5b';
+    return '#d4af37';
+  };
 
-      <div className="moral-meter">
-        <div className="moral-row">
-          <span className="section-label">Team Moral</span>
-          <span className="moral-value">{moralEffective.toFixed(0)}%</span>
+  const getMoralLabel = () => {
+    if (moralEffective < 40) return 'Low';
+    if (moralEffective > 90) return 'Excellent';
+    if (moralEffective > 70) return 'Good';
+    return 'Fair';
+  };
+
+  return (
+    <div className="moral-panel-redesign">
+      {/* Moral Display - Prominent */}
+      <div className="moral-display-card">
+        <div className="moral-header">
+          <span className="moral-label">Team Moral</span>
+          <span className="moral-percentage" style={{ color: getMoralColor() }}>
+            {moralEffective.toFixed(0)}%
+          </span>
         </div>
-        <div className="progress-bar">
+        <div className="moral-status-badge" style={{ 
+          background: `${getMoralColor()}20`,
+          borderColor: getMoralColor(),
+          color: getMoralColor()
+        }}>
+          {getMoralLabel()}
+        </div>
+        <div className="progress-bar-vintage">
           <div
-            className="progress-bar-fill"
+            className="progress-bar-fill-vintage"
             style={{
               width: `${Math.min(100, moralEffective)}%`,
-              boxShadow:
-                moralEffective < 40
-                  ? "0 0 24px rgba(248, 113, 113, 0.45)"
-                  : moralEffective > 90
-                    ? "0 0 24px rgba(52, 211, 153, 0.5)"
-                    : "0 0 24px rgba(251, 191, 36, 0.35)"
+              background: `linear-gradient(90deg, ${getMoralColor()}, ${getMoralColor()}dd)`,
+              boxShadow: `0 0 16px ${getMoralColor()}80`
             }}
           />
-          <div className="progress-bar-overlay" />
         </div>
       </div>
 
-      <div className="log-list">
-        {log.map((entry) => (
-          <div key={entry.id} className="log-entry">
-            {entry.message}
-          </div>
-        ))}
+      {/* Event Log - Compact Scrollable */}
+      <div className="log-panel-vintage">
+        <div className="log-header">Event Log</div>
+        <div className="log-list-vintage">
+          {log.length === 0 ? (
+            <div className="log-empty">No events yet...</div>
+          ) : (
+            log.map((entry) => (
+              <div key={entry.id} className="log-entry-vintage">
+                <span className="log-message">{entry.message}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

@@ -17,42 +17,40 @@ export default function UpgradesPanel({
   calculateUpgradeCost
 }: UpgradesPanelProps) {
   return (
-    <div className="card">
-      <div className="card-header">
-        <div>
-          <div className="card-title">Upgrades</div>
-          <div className="card-subtitle">
-            Similar structure to your previous game: costs scale per level and affect multiple stats.
-          </div>
-        </div>
-      </div>
-
-      <div className="upgrades-list">
+    <div className="upgrades-panel-redesign">
+      <div className="upgrades-grid">
         {upgrades.map((upgrade) => {
           const cost = calculateUpgradeCost(upgrade);
           const canAfford = money >= cost;
           return (
-            <div key={upgrade.id} className="upgrade-row">
-              <div className="upgrade-main">
-                <div className="upgrade-name">{upgrade.name}</div>
-                <div className="upgrade-meta">
-                  <span className="upgrade-chip">
-                    <strong>{upgrade.category}</strong>
-                  </span>
-                  <span>{upgrade.description}</span>
-                </div>
-                <div className="upgrade-level">
-                  Level: <strong>{upgrade.level}</strong>
+            <div 
+              key={upgrade.id} 
+              className={`upgrade-card ${canAfford ? 'affordable' : 'locked'}`}
+            >
+              <div className="upgrade-card-header">
+                <div className="upgrade-card-title">{upgrade.name}</div>
+                <div className="upgrade-card-category">{upgrade.category}</div>
+              </div>
+              
+              <div className="upgrade-card-body">
+                <div className="upgrade-card-description">{upgrade.description}</div>
+                <div className="upgrade-card-level">
+                  <span>Level</span>
+                  <span className="level-value">{upgrade.level}</span>
                 </div>
               </div>
-              <div className="upgrade-actions">
-                <div className="upgrade-price">€{cost}</div>
+
+              <div className="upgrade-card-footer">
+                <div className="upgrade-card-price">
+                  <span className="price-label">Cost</span>
+                  <span className="price-value">€{cost.toLocaleString()}</span>
+                </div>
                 <button
-                  className="btn-small btn-small-primary"
+                  className="upgrade-buy-btn"
                   onClick={() => onBuyUpgrade(upgrade.id)}
                   disabled={!canAfford}
                 >
-                  Buy
+                  {canAfford ? 'Buy' : 'Locked'}
                 </button>
               </div>
             </div>
@@ -62,3 +60,4 @@ export default function UpgradesPanel({
     </div>
   );
 }
+

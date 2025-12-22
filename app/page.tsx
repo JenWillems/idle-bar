@@ -683,6 +683,7 @@ export default function HomePage() {
   const [moral, setMoral] = useState(70); // 0-130, Grim Fandango-stijl moreel systeem
   const [activeChoice, setActiveChoice] = useState<MoralChoice | null>(null);
   const [activeCustomerQuest, setActiveCustomerQuest] = useState<CustomerQuest | null>(null);
+  const [customerForMoralEvent, setCustomerForMoralEvent] = useState<Customer | null>(null); // Track which customer triggered moral event
   const [lastEventTime, setLastEventTime] = useState(0);
   const [skeletonComment, setSkeletonComment] = useState<string>("");
   const [skeletonVisible, setSkeletonVisible] = useState(false);
@@ -696,6 +697,10 @@ export default function HomePage() {
   const [totalMoralChoices, setTotalMoralChoices] = useState(0);
   const [totalCustomersServed, setTotalCustomersServed] = useState(0);
   const [maxUpgradeLevel, setMaxUpgradeLevel] = useState(0);
+  const [barOpen, setBarOpen] = useState(true); // Bar is open by default
+  const [unlockedCustomers, setUnlockedCustomers] = useState<Set<SkeletonPersonality>>(new Set(["deco"])); // Start with Deco unlocked
+  const [servedCustomers, setServedCustomers] = useState<Map<string, { personality: SkeletonPersonality; lastServed: number }>>(new Map()); // Track served customers for returns
+  const [activeTab, setActiveTab] = useState<"stats" | "upgrades" | "achievements">("stats");
 
   // Afgeleide stats op basis van upgrades en actieve drank
   const stats = useMemo(() => {
@@ -1242,32 +1247,106 @@ export default function HomePage() {
   // Customer spawn systeem - Dave the Diver style
   const stoolPositions = [15, 29, 43, 57, 71, 85];
 
-  const spawnCustomer = useCallback(() => {
-      const maxCustomers = stoolPositions.length; // Max aantal klanten = aantal krukken
+  // Map upgrades to customer personalities they unlock
+  const upgradeToCustomerMap: Record<string, SkeletonPersonality> = {
+    "tap_speed": "evil",
+    "tap_amount": "rebel",
+    "sell_price": "smoking",
+    "auto_seller": "flower",
+    "premium_bier": "witch",
+    "staff_training": "deco", // Already unlocked, but can be upgraded
+    "wine_cellar": "smoking",
+    "cocktail_bar": "witch",
+    "whiskey_collection": "evil",
+    "champagne_service": "flower",
+    "bar_ambiance": "rebel",
+    "live_music": "smoking",
+    "loyalty_program": "flower",
+    "social_media": "rebel",
+    "bar_expansion": "witch",
+    "master_bartender": "smoking",
+    "vip_section": "evil",
+    "late_night_hours": "rebel",
+    "auto_customer_service": "flower",
+    "smart_inventory": "smoking",
+    "passive_income": "witch",
+    "auto_upgrade": "evil"
+  };
 
-      // Bepaal welke stoelen al bezet zijn door zittende klanten
-      const occupiedSeats = new Set(
-        customers
-          .filter((c: Customer) => !c.walking && c.seatIndex !== null)
-          .map((c: Customer) => c.seatIndex as number)
-      );
+  // Unlock customers when upgrades are purchased
+  useEffect(() => {
+    setUnlockedCustomers((prevUnlocked) => {
+      const newUnlocked = new Set<SkeletonPersonality>(prevUnlocked);
+      let hasNewUnlock = false;
 
-      if (occupiedSeats.size >= maxCustomers) return;
+      upgrades.forEach((upgrade) => {
+        if (upgrade.level > 0) {
+          const customerType = upgradeToCustomerMap[upgrade.id];
+          if (customerType && !newUnlocked.has(customerType)) {
+            newUnlocked.add(customerType);
+            hasNewUnlock = true;
+            pushLog(`🎉 New customer unlocked: ${skeletonPersonalities[customerType].name}!`);
+          }
+        }
+      });
 
-      // Zoek een vrije stoel
-      const freeSeats = stoolPositions
-        .map((_, index) => index)
-        .filter((idx) => !occupiedSeats.has(idx));
+      return hasNewUnlock ? newUnlocked : prevUnlocked;
+    });
+  }, [upgrades]);
 
-      if (freeSeats.length === 0) return;
+  const spawnCustomer = useCallback((forceSpawn = false) => {
+    // Don't spawn if bar is closed (unless forced)
+    if (!barOpen && !forceSpawn) return;
+    
+    // Get bar_ambiance level to determine max customers
+    // Level 0: max 1 customer, Level 8: max 6 customers
+    const ambianceLevel = upgrades.find((u: Upgrade) => u.id === "bar_ambiance")?.level ?? 0;
+    const maxCustomers = Math.min(1 + Math.floor((ambianceLevel / 8) * 5), 6); // Scale from 1 to 6
 
-      const targetSeatIndex =
-        freeSeats[Math.floor(Math.random() * freeSeats.length)];
+    // Count only seated customers (not walking in/out)
+    const seatedCustomers = customers.filter((c: Customer) => !c.walking && c.seatIndex !== null);
+    
+    if (seatedCustomers.length >= maxCustomers) {
+      return; // Bar is full
+    }
 
-    // Random skeleton personality
-    const personalityKeys = Object.keys(skeletonPersonalities) as SkeletonPersonality[];
-    const personality = personalityKeys[Math.floor(Math.random() * personalityKeys.length)];
+    // Find available seats
+    const occupiedSeats = new Set(
+      seatedCustomers.map((c: Customer) => c.seatIndex as number)
+    );
+
+    const freeSeats = stoolPositions
+      .map((_, index) => index)
+      .filter((idx) => !occupiedSeats.has(idx));
+
+    if (freeSeats.length === 0) return;
+
+    const targetSeatIndex =
+      freeSeats[Math.floor(Math.random() * freeSeats.length)];
+
+    // Only use unlocked customer personalities
+    const unlockedPersonalities = Array.from(unlockedCustomers);
+    if (unlockedPersonalities.length === 0) return; // No customers unlocked yet
+    
+    // 30% chance for a returning customer if any have been served
+    let personality: SkeletonPersonality;
+    let isReturning = false;
+    if (servedCustomers.size > 0 && Math.random() < 0.3) {
+      // Pick a random served customer to return
+      const servedArray = Array.from(servedCustomers.values());
+      const returningCustomer = servedArray[Math.floor(Math.random() * servedArray.length)];
+      personality = returningCustomer.personality;
+      isReturning = true;
+    } else {
+      // Random unlocked skeleton personality
+      personality = unlockedPersonalities[Math.floor(Math.random() * unlockedPersonalities.length)];
+    }
     const personalityData = skeletonPersonalities[personality];
+    
+    // Log if customer is returning
+    if (isReturning) {
+      pushLog(`🔄 ${personalityData.name} is back! Welcome back, regular customer!`);
+    }
     
     // Klant komt binnen van links
       const newCustomer: Customer = {
@@ -1327,17 +1406,53 @@ export default function HomePage() {
           );
       }, 800);
       }, 500);
-  }, [customers, stoolPositions, stats.pricePerGlass]);
+  }, [customers, stoolPositions, stats.pricePerGlass, barOpen, unlockedCustomers, servedCustomers, upgrades]);
 
   useEffect(() => {
-    // Automatisch af en toe een klant binnenlaten
-    const spawnInterval = 3000 + Math.random() * 5000;
-    const spawnTimer = setTimeout(() => {
-      spawnCustomer();
-    }, spawnInterval);
-
-    return () => clearTimeout(spawnTimer);
-  }, [spawnCustomer]);
+    // Only automatically spawn customers if bar is open
+    if (!barOpen) return;
+    
+    let timeoutId: NodeJS.Timeout | null = null;
+    let isActive = true;
+    
+    const scheduleSpawn = () => {
+      if (!isActive) return;
+      
+      // Get bar ambiance level - affects spawn rate
+      const ambianceLevel = upgrades.find((u: Upgrade) => u.id === "bar_ambiance")?.level ?? 0;
+      
+      // Base spawn interval: 3000-5000ms at level 0, faster with ambiance upgrades
+      const baseInterval = 3000 + Math.random() * 2000;
+      const spawnInterval = Math.max(2000, baseInterval - (ambianceLevel * 150));
+      
+      timeoutId = setTimeout(() => {
+        // Check again if bar is still open and effect is still active
+        if (!isActive) return;
+        
+        // Always spawn 1 customer at a time (max customers is controlled by spawnCustomer function)
+        spawnCustomer();
+        
+        // Schedule next spawn if still active
+        if (isActive) {
+          scheduleSpawn();
+        }
+      }, spawnInterval);
+    };
+    
+    // Start the spawning cycle immediately with a small initial delay
+    const initialDelay = 1000; // 1 second delay before first customer
+    timeoutId = setTimeout(() => {
+      if (isActive && barOpen) {
+        spawnCustomer(); // Spawn first customer
+        scheduleSpawn(); // Then start the cycle
+      }
+    }, initialDelay);
+    
+    return () => {
+      isActive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [spawnCustomer, barOpen, upgrades]);
 
   // Customer patience decay and opportunity timeout
   useEffect(() => {
@@ -1692,6 +1807,7 @@ export default function HomePage() {
       // Trigger a morale event - this customer has a moral dilemma to discuss
       const randomEvent = moralEvents[Math.floor(Math.random() * moralEvents.length)];
       setActiveChoice(randomEvent);
+      setCustomerForMoralEvent(customer); // Track which customer triggered this
       setLastEventTime(Date.now());
       
       // Show personality-based comment
@@ -1752,6 +1868,19 @@ export default function HomePage() {
 
     // Track customer served
     setTotalCustomersServed((prev: number) => prev + 1);
+
+    // Track this customer as served so they can return
+    const servedCustomer = customers.find((c: Customer) => c.id === activeCustomerQuest.customerId);
+    if (servedCustomer) {
+      setServedCustomers((prev: Map<string, { personality: SkeletonPersonality; lastServed: number }>) => {
+        const newMap = new Map(prev);
+        newMap.set(servedCustomer.personality, {
+          personality: servedCustomer.personality,
+          lastServed: Date.now()
+        });
+        return newMap;
+      });
+    }
 
     // Log the choice
     const moralText = choice.moral > 0 ? `+${choice.moral}` : `${choice.moral}`;
@@ -1964,6 +2093,27 @@ export default function HomePage() {
 
     // Track moral choice made
     setTotalMoralChoices((prev: number) => prev + 1);
+    
+    // If this was triggered by a customer, track them as served so they can return
+    if (customerForMoralEvent) {
+      setServedCustomers((prev: Map<string, { personality: SkeletonPersonality; lastServed: number }>) => {
+        const newMap = new Map(prev);
+        newMap.set(customerForMoralEvent.personality, {
+          personality: customerForMoralEvent.personality,
+          lastServed: Date.now()
+        });
+        return newMap;
+      });
+      
+      // Customer leaves after moral choice
+      setCustomers((prev: Customer[]) =>
+        prev.map((c: Customer) =>
+          c.id === customerForMoralEvent.id
+            ? { ...c, opportunity: null, walking: true, direction: "left" as const }
+            : c
+        )
+      );
+    }
 
     // Log the choice and consequence with sarcastic dialogue
     const moralText = choice.moral > 0 ? `+${choice.moral}` : `${choice.moral}`;
@@ -1976,8 +2126,9 @@ export default function HomePage() {
       pushLog(`→ ${choice.consequence}`);
     }
 
-    // Close the choice
+    // Close the choice and clear customer tracking
     setActiveChoice(null);
+    setCustomerForMoralEvent(null);
   }
 
   function handleManualTap() {
@@ -2100,168 +2251,127 @@ export default function HomePage() {
     <main className="dave-layout">
       <SkeletonCommentator visible={skeletonVisible} comment={skeletonComment} />
       
-      <BarScene
-        customers={customers}
-        onCustomerClick={handleCustomerClick}
-        onSpawnCustomer={spawnCustomer}
-      />
+      <div className="main-layout-container">
+        {/* Left Column: Bar Scene */}
+        <div className="bar-column">
+          <BarScene
+            customers={customers}
+            onCustomerClick={handleCustomerClick}
+            barOpen={barOpen}
+            onToggleBar={() => {
+              const willBeOpen = !barOpen;
+              setBarOpen(willBeOpen);
+              
+              if (willBeOpen) {
+                pushLog(`Bar is now OPEN. Customers welcome!`);
+              } else {
+                pushLog(`Bar is now CLOSED. No new customers.`);
+              }
+            }}
+          />
+        </div>
 
-      <div className="app-shell">
-        {/* Linker zijde: bier en tap */}
-        <section>
-          <header className="header">
-            <div>
-              <div className="title">
-                Tipsy Dragon Bar
-                <span className="title-pill">Film Noir Edition</span>
-              </div>
-              <p className="subtitle">
-                In deze stad van schaduwen en bier, waar elke hoek een verhaal vertelt en elke glas een geheim heeft, 
-                telt elke keuze. Tap je bier, verkoop je ziel... of verkoop je glazen. De keuze is aan jou, detective. 
-                Welkom in de wereld waar moreel een luxe is en geld koning. Of is het andersom? Wie weet.
-              </p>
-            </div>
-          </header>
+        {/* Right Column: All Menu Elements */}
+        <div className="menu-column">
+          <div className="menu-tabs">
+            <button 
+              className={`menu-tab ${activeTab === "stats" ? "active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              📊 Stats
+            </button>
+            <button 
+              className={`menu-tab ${activeTab === "upgrades" ? "active" : ""}`}
+              onClick={() => setActiveTab("upgrades")}
+            >
+              ⚡ Upgrades
+            </button>
+            <button 
+              className={`menu-tab ${activeTab === "achievements" ? "active" : ""}`}
+              onClick={() => setActiveTab("achievements")}
+            >
+              🏆 Achievements
+            </button>
+          </div>
 
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Tap & Voorraad</div>
-                <div className="card-subtitle">
-                  {stats.currentDrink.name} stroomt automatisch. Je kunt altijd zelf bijtappen of verkopen.
-                </div>
-              </div>
-            </div>
-            
-            {/* Dranken Selector */}
-            <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-elevated)', border: '1px solid var(--border-gold)', borderStyle: 'double' }}>
-              <div style={{ marginBottom: '10px', fontSize: '0.9rem', color: 'var(--text)', fontWeight: 'bold' }}>
-                Actieve Drank:
-              </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {drinks.map((drink: Drink) => (
-                  <button
-                    key={drink.type}
-                    onClick={() => {
-                      if (drink.unlocked) {
-                        setActiveDrink(drink.type);
-                        pushLog(`Switched to ${drink.name}.`);
-                      }
-                    }}
-                    disabled={!drink.unlocked}
-                    style={{
-                      padding: '10px 15px',
-                      background: activeDrink === drink.type 
-                        ? 'var(--accent-soft)' 
-                        : drink.unlocked 
-                          ? 'var(--bg-pattern)' 
-                          : 'rgba(0, 0, 0, 0.5)',
-                      border: `2px solid ${activeDrink === drink.type ? 'var(--accent)' : drink.unlocked ? 'var(--border-gold)' : 'rgba(139, 115, 85, 0.3)'}`,
-                      borderStyle: activeDrink === drink.type ? 'double' : 'solid',
-                      color: drink.unlocked ? 'var(--text)' : 'var(--text-muted)',
-                      cursor: drink.unlocked ? 'pointer' : 'not-allowed',
-                      fontSize: '0.85rem',
-                      fontWeight: activeDrink === drink.type ? 'bold' : 'normal',
-                      opacity: drink.unlocked ? 1 : 0.5,
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {drink.unlocked ? (
-                      <>
-                        {drink.type === "bier" && "🍺"}
-                        {drink.type === "wijn" && "🍷"}
-                        {drink.type === "cocktail" && "🍸"}
-                        {drink.type === "whiskey" && "🥃"}
-                        {drink.type === "champagne" && "🍾"}
-                        {" "}{drink.name}
-                        {activeDrink === drink.type && " ✓"}
-                      </>
-                    ) : (
-                      <>
-                        {drink.type === "bier" && "🍺"}
-                        {drink.type === "wijn" && "🍷"}
-                        {drink.type === "cocktail" && "🍸"}
-                        {drink.type === "whiskey" && "🥃"}
-                        {drink.type === "champagne" && "🍾"}
-                        {" "}{drink.name} 🔒
-                      </>
-                    )}
-                  </button>
-                ))}
-              </div>
-              {stats.currentDrink && (
-                <div style={{ marginTop: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  <div>Prijs: €{stats.currentDrink.basePrice.toFixed(0)} per glas</div>
-                  <div>Capaciteit: {stats.currentDrink.capacity} cl per glas</div>
-                  <div>Productietijd: {(stats.currentDrink.productionTime / 1000).toFixed(1)}s</div>
-                </div>
-              )}
+          <div className="menu-content">
+            {activeTab === "stats" && (
+              <section className="tab-section">
+
+          <div className="compact-card">
+            {/* Drink Selector - Compact */}
+            <div className="drink-selector-compact">
+              {drinks.map((drink: Drink) => (
+                <button
+                  key={drink.type}
+                  onClick={() => {
+                    if (drink.unlocked) {
+                      setActiveDrink(drink.type);
+                      pushLog(`Switched to ${drink.name}.`);
+                    }
+                  }}
+                  disabled={!drink.unlocked}
+                  className={`drink-btn ${activeDrink === drink.type ? "active" : ""} ${!drink.unlocked ? "locked" : ""}`}
+                >
+                  {drink.type === "bier" && "🍺"}
+                  {drink.type === "wijn" && "🍷"}
+                  {drink.type === "cocktail" && "🍸"}
+                  {drink.type === "whiskey" && "🥃"}
+                  {drink.type === "champagne" && "🍾"}
+                  {!drink.unlocked && "🔒"}
+                </button>
+              ))}
             </div>
 
-            <div className="metric-row">
-              <div className="metric">
-                <span className="metric-label">{stats.currentDrink.name}</span>
-                <span className="metric-value">{beer.toFixed(1)} cl</span>
-                <span className="metric-muted">
-                  (~{totalGlasses.toFixed(1)} glazen)
-                </span>
+            {/* Compact Stats Grid */}
+            <div className="stats-grid-compact">
+              <div className="stat-box">
+                <div className="stat-value">€{money.toFixed(0)}</div>
+                <div className="stat-label">Money</div>
               </div>
-              <div className="metric">
-                <span className="metric-label">Geld</span>
-                <span className="metric-value">€{money.toFixed(0)}</span>
+              <div className="stat-box">
+                <div className="stat-value">{beer.toFixed(0)} cl</div>
+                <div className="stat-label">{stats.currentDrink.name}</div>
               </div>
-              <div className="metric">
-                <span className="metric-label">Verkocht</span>
-                <span className="metric-value">{totalGlassesSold}</span>
-                <span className="metric-muted">glazen totaal</span>
+              <div className="stat-box">
+                <div className="stat-value">{totalGlassesSold}</div>
+                <div className="stat-label">Sold</div>
               </div>
-            </div>
-
-            <div className="metric-row">
-              <div className="metric">
-                <span className="metric-label">Tap Rate</span>
-                <span className="metric-value">
-                  {stats.tapPerTick.toFixed(1)} /{" "}
-                  {(stats.tapInterval / 1000).toFixed(2)}s
-                </span>
+              <div className="stat-box">
+                <div className="stat-value">€{stats.pricePerGlass.toFixed(1)}</div>
+                <div className="stat-label">Price/Glass</div>
               </div>
-              <div className="metric">
-                <span className="metric-label">Prijs per Glas</span>
-                <span className="metric-value">
-                  €{stats.pricePerGlass.toFixed(1)}
-                </span>
+              <div className="stat-box">
+                <div className="stat-value">{stats.tapPerTick.toFixed(1)}/s</div>
+                <div className="stat-label">Rate</div>
               </div>
-              <div className="metric">
-                <span className="metric-label">€ / min (ongeveer)</span>
-                <span className="metric-value">
-                  €{approxIncomePerMinute.toFixed(0)}
-                </span>
+              <div className="stat-box">
+                <div className="stat-value">€{approxIncomePerMinute.toFixed(0)}/m</div>
+                <div className="stat-label">Income</div>
               </div>
               {prestigeLevel > 0 && (
-                <div className="metric">
-                  <span className="metric-label">Prestige Bonus</span>
-                  <span className="metric-value">
-                    +{prestigePoints * 10}%
-                  </span>
+                <div className="stat-box prestige">
+                  <div className="stat-value">+{prestigePoints * 10}%</div>
+                  <div className="stat-label">Prestige</div>
                 </div>
               )}
               {goldenEventActive && (
-                <div className="metric" style={{ background: 'rgba(212, 165, 116, 0.2)', borderColor: 'var(--accent)' }}>
-                  <span className="metric-label">✨ Golden Event</span>
-                  <span className="metric-value">ACTIEF!</span>
+                <div className="stat-box golden">
+                  <div className="stat-value">✨</div>
+                  <div className="stat-label">Golden!</div>
                 </div>
               )}
             </div>
 
-            {/* Moral Effect Display */}
+            {/* Moral Effect - Compact */}
             {stats.moralEffective >= 90 && (
-              <div className="moral-bonus-display" style={{ background: 'rgba(34, 197, 94, 0.15)', borderColor: 'rgba(34, 197, 94, 0.5)' }}>
-                <strong>✨ Goede Moreel Bonus:</strong> +50% productie, +40% prijs, +30% efficiency!
+              <div className="moral-indicator good">
+                ✨ Good Moral: +50% prod, +40% price
               </div>
             )}
             {stats.moralEffective < 50 && (
-              <div className="moral-bonus-display" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.5)' }}>
-                <strong>⚠️ Slechte Moreel Penalty:</strong> {stats.moralEffective < 30 ? '-40% productie, -50% prijs!' : '-20% productie, -25% prijs!'}
+              <div className="moral-indicator bad">
+                ⚠️ Bad Moral: {stats.moralEffective < 30 ? '-40% prod, -50% price' : '-20% prod, -25% price'}
               </div>
             )}
 
@@ -2273,58 +2383,51 @@ export default function HomePage() {
               <div className="progress-bar-overlay" />
             </div>
 
-            <div className="tap-area">
-              <button className="tap-button" onClick={handleManualTap}>
-                Tap Zelf
+            {/* Tap Controls - Compact */}
+            <div className="tap-controls-compact">
+              <button className="btn-compact-primary" onClick={handleManualTap}>
+                Tap
               </button>
-
-              <div className="glass-wrapper">
-                <div className="glass">
-                  <div
-                    className="glass-fill"
-                    style={{ height: `${currentGlassFillPercent}%` }}
-                  >
-                    <div className="glass-foam" />
-                  </div>
-                  <div className="glass-highlight" />
-                  <div className="glass-lines" />
-                </div>
-                <div>
-                  <div className="glass-capacity">
-                    <strong>1 glas</strong> = {GLASS_CAPACITY} cl
-                  </div>
-                  <button className="btn-small" onClick={handleSellOneBatch}>
-                    Verkoop 1–6 glazen
-                  </button>
-                </div>
+              <div className="glass-compact">
+                <div className="glass-fill-compact" style={{ height: `${currentGlassFillPercent}%` }} />
               </div>
+              <button className="btn-compact-secondary" onClick={handleSellOneBatch}>
+                Sell
+              </button>
             </div>
           </div>
-        </section>
+            </section>
+            )}
 
-        {/* Rechter zijde: upgrades + moreel/log (voor nu basic, later uitbreiden) */}
-        <section className="panel">
-          <UpgradesPanel
-            upgrades={upgrades}
-            money={money}
-            onBuyUpgrade={handleBuyUpgrade}
-            calculateUpgradeCost={calculateUpgradeCost}
-          />
+            {activeTab === "upgrades" && (
+              <section className="tab-section">
+                <UpgradesPanel
+                  upgrades={upgrades}
+                  money={money}
+                  onBuyUpgrade={handleBuyUpgrade}
+                  calculateUpgradeCost={calculateUpgradeCost}
+                />
+                <MoralLogPanel
+                  moralEffective={stats.moralEffective}
+                  log={log}
+                />
+              </section>
+            )}
 
-          <MoralLogPanel
-            moralEffective={stats.moralEffective}
-            log={log}
-          />
-
-          <AchievementsPanel
-            achievements={achievements}
-            prestigeLevel={prestigeLevel}
-            prestigePoints={prestigePoints}
-            totalEarned={totalEarned}
-            goldenEventActive={goldenEventActive}
-            onPrestige={handlePrestige}
-          />
-        </section>
+            {activeTab === "achievements" && (
+              <section className="tab-section">
+                <AchievementsPanel
+                  achievements={achievements}
+                  prestigeLevel={prestigeLevel}
+                  prestigePoints={prestigePoints}
+                  totalEarned={totalEarned}
+                  goldenEventActive={goldenEventActive}
+                  onPrestige={handlePrestige}
+                />
+              </section>
+            )}
+          </div>
+        </div>
       </div>
 
       {activeChoice && (
