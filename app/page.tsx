@@ -962,7 +962,13 @@ export default function HomePage() {
           return newMoney;
         });
         setTotalGlassesSold((g: number) => g + toSell);
-        // No skeleton comment or log for auto-sell (too frequent, happens automatically)
+        // Alleen 20% kans op skeleton comment bij auto-verkoop (komt vaak voor)
+        if (Math.random() > 0.8) {
+          const dialog = getRandomDialog("auto_sell", moral);
+          showSkeletonComment(dialog);
+        }
+        const drinkName = stats.currentDrink.name.toLowerCase();
+        pushLog(`Je personeel verkocht ${toSell} ${drinkName} voor €${earned.toFixed(0)}.`);
         // Geen morale meer bij auto-verkoop - alleen goede keuzes geven morale
         return prevBeer - toSell * drinkCapacity;
       });
@@ -1121,15 +1127,7 @@ export default function HomePage() {
     "Pianist",
     "Mob Boss"
     ];
-    // Gebruik skeleton PNG's in plaats van emoji's
-    const customerSprites = [
-      "/img/deco-skeleton.png",
-      "/img/evil-skeleton.png",
-      "/img/flower-skeleton.png",
-      "/img/rebel-skeleton.png",
-      "/img/smoking-skeleton.png",
-      "/img/witch-skelton.png"
-    ];
+    const customerSprites = ["🧑", "👩", "🧔", "👨", "👴", "💀", "🍺", "🎤", "🎹", "🎩"];
     const customerColors = [
     "#d4a574",
     "#9d7fb8",
@@ -1142,12 +1140,11 @@ export default function HomePage() {
     "#3d2f26",
     "#2a1f1a"
     ];
-    // Vaste posities voor barkrukken (in % van de breedte) - VERMINDERD naar 4 stoelen
-    const stoolPositions = [20, 40, 60, 80];
+    // Vaste posities voor barkrukken (in % van de breedte)
+    const stoolPositions = [15, 29, 43, 57, 71, 85];
 
   const spawnCustomer = useCallback(() => {
-      // VERMINDERD: Max 3 klanten tegelijk (in plaats van 6)
-      const maxCustomers = Math.min(3, stoolPositions.length);
+      const maxCustomers = stoolPositions.length; // Max aantal klanten = aantal krukken
 
       // Bepaal welke stoelen al bezet zijn door zittende klanten
       const occupiedSeats = new Set(
@@ -1180,13 +1177,8 @@ export default function HomePage() {
         id: `customer-${Date.now()}-${Math.random()}`,
         name,
         x: -10, // Start buiten scherm
-        // Y-positie precies ter hoogte van de barkrukken
-        // Bar scene: 400px high
-        // Stools container: bottom: 140px, height: 40px → top at 220px (55%)
-        // Stool: 30px high, at bottom of container → stool top at 260px - 30px = 230px (57.5%)
-        // Customer container: 220px high, with justify-content: flex-end
-        // To align sprite bottom with stool top (230px): container top = 230px - 220px = 10px = 2.5%
-        y: 2.5,
+        // Y-positie grofweg ter hoogte van de barkrukken
+        y: 55,
         seatIndex: null,
         sprite,
         opportunity: null,
@@ -1232,8 +1224,8 @@ export default function HomePage() {
   }, [customers, customerNames, customerSprites, customerColors, stoolPositions, stats.pricePerGlass]);
 
   useEffect(() => {
-    // VERMINDERD: Minder klanten - spawn elke 10-20 seconden (in plaats van 3-8)
-    const spawnInterval = 10000 + Math.random() * 10000;
+    // Automatisch af en toe een klant binnenlaten
+    const spawnInterval = 3000 + Math.random() * 5000;
     const spawnTimer = setTimeout(() => {
       spawnCustomer();
     }, spawnInterval);
@@ -1296,7 +1288,7 @@ export default function HomePage() {
                   setBeer((b: number) => Math.max(0, b + (autoChoice.beer || 0)));
                 }
                 
-                pushLog(`[AUTO] ${c.name} was automatically served. +€${(autoChoice.money || 0).toFixed(2)}`);
+                pushLog(`[AUTO] ${c.name} werd automatisch geholpen. +€${(autoChoice.money || 0).toFixed(0)}`);
                 
                 return { ...c, opportunity: null, walking: true, direction: "left" as const };
               }
@@ -1386,13 +1378,13 @@ export default function HomePage() {
           description: `"Hey barkeeper, ik wil graag een ${stats.currentDrink.name.toLowerCase()}. Wat kost dat tegenwoordig?"`,
           choices: [
             {
-              text: "Ask normal price (€" + baseValue.toFixed(2) + ")",
+              text: "Normale prijs vragen (€" + baseValue.toFixed(0) + ")",
               moral: 0,
               money: baseValue,
               consequence: `${customer.name} betaalt en is tevreden.`
             },
             {
-              text: "Ask higher price (€" + (baseValue * 1.5).toFixed(2) + ")",
+              text: "Hogere prijs vragen (€" + (baseValue * 1.5).toFixed(0) + ")",
               moral: -3,
               money: baseValue * 1.5,
               consequence: `${customer.name} betaalt, maar kijkt je wantrouwend aan.`
@@ -1411,13 +1403,13 @@ export default function HomePage() {
           description: `"Ik heb gehoord dat je hier de beste ${stats.currentDrink.name.toLowerCase()} serveert. Klopt dat?"`,
           choices: [
             {
-              text: "Yes, and it costs €" + baseValue.toFixed(2),
+              text: "Ja, en het kost €" + baseValue.toFixed(0),
               moral: 0,
               money: baseValue,
               consequence: `${customer.name} bestelt en is tevreden.`
             },
             {
-              text: "Yes, but it's premium (€" + (baseValue * 2).toFixed(2) + ")",
+              text: "Ja, maar het is premium (€" + (baseValue * 2).toFixed(0) + ")",
               moral: -2,
               money: baseValue * 2,
               consequence: `${customer.name} betaalt, maar twijfelt aan je eerlijkheid.`
@@ -1438,19 +1430,19 @@ export default function HomePage() {
           description: `"Ik heb gehoord dat je goede service geeft. Als ik goed betaal, krijg ik dan iets speciaals?"`,
           choices: [
             {
-              text: "Normal service for normal price (€" + baseValue.toFixed(2) + ")",
+              text: "Normale service voor normale prijs (€" + baseValue.toFixed(0) + ")",
               moral: 0,
               money: baseValue,
               consequence: `${customer.name} is tevreden met de service.`
             },
             {
-              text: "Extra service for extra tip (€" + (baseValue * 2.5).toFixed(2) + ")",
+              text: "Extra service voor extra fooi (€" + (baseValue * 2.5).toFixed(0) + ")",
               moral: 1,
               money: baseValue * 2.5,
               consequence: `${customer.name} geeft een grote fooi en komt terug!`
             },
             {
-              text: "Premium treatment, but charge a lot (€" + (baseValue * 3).toFixed(2) + ")",
+              text: "Premium behandeling, maar vraag veel (€" + (baseValue * 3).toFixed(0) + ")",
               moral: -4,
               money: baseValue * 3,
               consequence: `${customer.name} betaalt, maar voelt zich opgelicht.`
@@ -1465,19 +1457,19 @@ export default function HomePage() {
           description: `"Ik zoek iets unieks. Heb je iets bijzonders? Ik betaal goed."`,
           choices: [
             {
-              text: "Make special cocktail (€" + (baseValue * 2).toFixed(2) + ")",
+              text: "Speciale cocktail maken (€" + (baseValue * 2).toFixed(0) + ")",
               moral: 2,
               money: baseValue * 2,
               consequence: `${customer.name} is onder de indruk en geeft een grote fooi!`
             },
             {
-              text: "Just sell it expensive (€" + (baseValue * 4).toFixed(2) + ")",
+              text: "Gewoon duur verkopen (€" + (baseValue * 4).toFixed(0) + ")",
               moral: -5,
               money: baseValue * 4,
               consequence: `${customer.name} betaalt, maar voelt zich bedrogen.`
             },
             {
-              text: "Be honest about what you have (€" + baseValue.toFixed(2) + ")",
+              text: "Eerlijk zijn over wat je hebt (€" + baseValue.toFixed(0) + ")",
               moral: 3,
               money: baseValue,
               consequence: `${customer.name} respecteert je eerlijkheid en komt terug.`
@@ -1568,7 +1560,10 @@ export default function HomePage() {
       pushLog(`→ ${choice.consequence}`);
     }
 
-    // No skeleton comment for customer quests (too frequent)
+    // Skeleton comment
+    const dialog = getRandomDialog(choice.moral > 0 ? "sell" : "sell", moral);
+    showSkeletonComment(dialog);
+
     // Customer leaves
     setCustomers((prev: Customer[]) =>
       prev.map((c: Customer) =>
@@ -1709,11 +1704,14 @@ export default function HomePage() {
     
     adjustMoral(punishment.moral);
     
-    // No skeleton comment for punishments (too frequent)
+    // Skeleton comment
+    const dialog = getRandomDialog("sell", moral);
+    showSkeletonComment(dialog);
+    
     // Log
     pushLog(`[STRAF] ${punishment.title}: ${punishment.message}`);
     if (moneyLost > 0) {
-      pushLog(`→ Money lost: €${moneyLost.toFixed(2)}`);
+      pushLog(`→ Geld verloren: €${moneyLost}`);
     }
     if (beerLost > 0) {
       pushLog(`→ Bier verloren: ${beerLost.toFixed(0)} cl`);
@@ -1763,11 +1761,9 @@ export default function HomePage() {
     // Log de keuze en gevolg met sarcastische dialoog
     const moralText = choice.moral > 0 ? `+${choice.moral}` : `${choice.moral}`;
     const newMoral = Math.min(130, Math.max(0, moral + choice.moral));
-    // Very rare skeleton comment for moral choices (only 5% chance - they're important but too frequent)
-    if (Math.random() > 0.95) {
-      const dialog = getRandomDialog(choice.moral > 0 ? "sell" : "sell", newMoral);
-      showSkeletonComment(dialog);
-    }
+    // Bij morele keuzes altijd skeleton comment (zijn belangrijk)
+    const dialog = getRandomDialog(choice.moral > 0 ? "sell" : "sell", newMoral);
+    showSkeletonComment(dialog);
     pushLog(`[KEUZE] ${activeChoice.title}: ${choice.text} (Moreel: ${moralText})`);
     if (choice.consequence) {
       pushLog(`→ ${choice.consequence}`);
@@ -1789,7 +1785,11 @@ export default function HomePage() {
       const drinkCapacity = stats.drinkCapacity;
       const availableGlasses = Math.floor(prevBeer / drinkCapacity);
       if (availableGlasses <= 0) {
-        // No skeleton comment for empty sell attempts (too frequent)
+        // Alleen 30% kans op skeleton comment bij lege glazen
+        if (Math.random() > 0.7) {
+          const dialog = getRandomDialog("empty_sell", moral);
+          showSkeletonComment(dialog);
+        }
         pushLog("Je probeert te verkopen, maar je glazen zijn leeg.");
         // Geen morale penalty meer - alleen slechte keuzes in events geven penalty
         return prevBeer;
@@ -1802,9 +1802,13 @@ export default function HomePage() {
         return newMoney;
       });
       setTotalGlassesSold((g: number) => g + toSell);
-      // No skeleton comment for manual sales (too frequent)
+      // Alleen 30% kans op skeleton comment bij verkoop
+      if (Math.random() > 0.7) {
+        const dialog = getRandomDialog("sell", moral);
+        showSkeletonComment(dialog);
+      }
       const drinkName = stats.currentDrink.name.toLowerCase();
-      pushLog(`You sold ${toSell} ${drinkName} for €${earned.toFixed(2)}.`);
+      pushLog(`Je verkoopt ${toSell} ${drinkName} voor €${earned.toFixed(0)}.`);
       // Geen morale meer bij normale verkoop - alleen goede keuzes geven morale
       return prevBeer - toSell * drinkCapacity;
     });
@@ -1820,7 +1824,11 @@ export default function HomePage() {
       // Fix: Bereken cost VOOR de check, en gebruik functional update voor money
       const cost = calculateUpgradeCost(upgrade);
       if (money < cost) {
-        // No skeleton comment for failed upgrades (too frequent)
+        // Alleen 30% kans op skeleton comment bij mislukte upgrade
+        if (Math.random() > 0.7) {
+          const dialog = getRandomDialog("no_money", moral);
+          showSkeletonComment(dialog);
+        }
         pushLog(`Niet genoeg geld voor ${upgrade.name}.`);
         // Geen morale penalty meer bij geen geld - alleen slechte keuzes geven penalty
         return prev;
@@ -1858,8 +1866,12 @@ export default function HomePage() {
         pushLog("🍾 Champagne service ontgrendeld! Proost!");
       }
       
-      // No skeleton comment for successful upgrades (too frequent)
-      pushLog(`Upgrade purchased: ${upgrade.name} (level ${upgrade.level + 1}) for €${cost.toFixed(2)}.`);
+      // Alleen 30% kans op skeleton comment bij succesvolle upgrade
+      if (Math.random() > 0.7) {
+        const dialog = getRandomDialog("upgrade", moral);
+        showSkeletonComment(dialog);
+      }
+      pushLog(`Upgrade gekocht: ${upgrade.name} (level ${upgrade.level + 1}) voor €${cost}.`);
       // Geen morale meer bij upgrades - alleen goede keuzes geven morale
       return prev.map((u: Upgrade) =>
         u.id === upgradeId ? { ...u, level: u.level + 1 } : u
@@ -1902,8 +1914,8 @@ export default function HomePage() {
         <div className="bar-background">
           <div className="bar-counter"></div>
           <div className="bar-stools">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bar-stool" style={{ left: `${20 + i * 20}%` }}></div>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bar-stool" style={{ left: `${15 + i * 14}%` }}></div>
             ))}
           </div>
           
@@ -1917,16 +1929,12 @@ export default function HomePage() {
                 top: `${customer.y}%`,
                 color: customer.color,
                 cursor: customer.opportunity ? 'pointer' : 'default',
-                transform: `translateX(-50%) ${customer.direction === 'left' ? 'scaleX(-1)' : 'none'}`,
+                transform: customer.direction === 'left' ? 'scaleX(-1)' : 'none',
                 transition: customer.walking ? 'left 0.5s linear' : 'none'
               }}
               onClick={() => handleCustomerClick(customer.id)}
             >
-              <img 
-                src={customer.sprite} 
-                alt={customer.name}
-                className="customer-sprite"
-              />
+              <div className="customer-sprite">{customer.sprite}</div>
               <div className="customer-name">{customer.name}</div>
               
               {/* Opportunity Icon */}
@@ -2039,7 +2047,7 @@ export default function HomePage() {
               </div>
               {stats.currentDrink && (
                 <div style={{ marginTop: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  <div>Price: €{stats.currentDrink.basePrice.toFixed(2)} per glass</div>
+                  <div>Prijs: €{stats.currentDrink.basePrice.toFixed(0)} per glas</div>
                   <div>Capaciteit: {stats.currentDrink.capacity} cl per glas</div>
                   <div>Productietijd: {(stats.currentDrink.productionTime / 1000).toFixed(1)}s</div>
                 </div>
@@ -2056,7 +2064,7 @@ export default function HomePage() {
               </div>
               <div className="metric">
                 <span className="metric-label">Geld</span>
-                <span className="metric-value">€{money.toFixed(2)}</span>
+                <span className="metric-value">€{money.toFixed(0)}</span>
               </div>
               <div className="metric">
                 <span className="metric-label">Verkocht</span>
@@ -2076,7 +2084,7 @@ export default function HomePage() {
               <div className="metric">
                 <span className="metric-label">Prijs per Glas</span>
                 <span className="metric-value">
-                  €{stats.pricePerGlass.toFixed(2)}
+                  €{stats.pricePerGlass.toFixed(1)}
                 </span>
               </div>
               <div className="metric">
@@ -2182,7 +2190,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="upgrade-actions">
-                      <div className="upgrade-price">€{cost.toFixed(2)}</div>
+                      <div className="upgrade-price">€{cost}</div>
                       <button
                         className="btn-small btn-small-primary"
                         onClick={() => handleBuyUpgrade(upgrade.id)}
@@ -2262,7 +2270,7 @@ export default function HomePage() {
                 </div>
                 <div className="metric">
                   <span className="metric-label">Totaal Verdiend</span>
-                  <span className="metric-value">€{totalEarned.toFixed(2)}</span>
+                  <span className="metric-value">€{totalEarned.toFixed(0)}</span>
                 </div>
               </div>
               
@@ -2328,17 +2336,17 @@ export default function HomePage() {
                   <div className="modal-choice-effects">
                     {choice.moral !== 0 && (
                       <span className={`modal-effect ${choice.moral > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Morale: {choice.moral > 0 ? "+" : ""}{choice.moral}
+                        Moreel: {choice.moral > 0 ? "+" : ""}{choice.moral}
                       </span>
                     )}
                     {choice.money !== undefined && (
                       <span className={`modal-effect ${choice.money > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Money: {choice.money > 0 ? "+" : ""}€{choice.money.toFixed(2)}
+                        Geld: {choice.money > 0 ? "+" : ""}€{choice.money}
                       </span>
                     )}
                     {choice.beer !== undefined && (
                       <span className={`modal-effect ${choice.beer > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Beer: {choice.beer > 0 ? "+" : ""}{choice.beer}
+                        Bier: {choice.beer > 0 ? "+" : ""}{choice.beer}
                       </span>
                     )}
                   </div>
@@ -2393,17 +2401,17 @@ export default function HomePage() {
                   <div className="modal-choice-effects">
                     {choice.moral !== 0 && (
                       <span className={`modal-effect ${choice.moral > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Morale: {choice.moral > 0 ? "+" : ""}{choice.moral}
+                        Moreel: {choice.moral > 0 ? "+" : ""}{choice.moral}
                       </span>
                     )}
                     {choice.money !== undefined && (
                       <span className={`modal-effect ${choice.money > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Money: {choice.money > 0 ? "+" : ""}€{choice.money.toFixed(2)}
+                        Geld: {choice.money > 0 ? "+" : ""}€{choice.money}
                       </span>
                     )}
                     {choice.beer !== undefined && (
                       <span className={`modal-effect ${choice.beer > 0 ? "effect-positive" : "effect-negative"}`}>
-                        Beer: {choice.beer > 0 ? "+" : ""}{choice.beer}
+                        Bier: {choice.beer > 0 ? "+" : ""}{choice.beer}
                       </span>
                     )}
                   </div>

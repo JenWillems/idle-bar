@@ -1440,31 +1440,21 @@ main {
 /* Customer Pixel Art Style */
 .customer-pixel {
   position: absolute;
-  width: 180px;
-  height: 220px;
+  width: 60px;
+  height: 80px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   z-index: 10;
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
-  /* Align bottom of sprite with stool top */
-  /* Stool container: bottom 140px, height 40px = top at 220px (55%) */
-  /* Stool is 30px high, positioned at bottom of container = stool top at 230px (57.5%) */
-  /* Container is 220px high, so container top should be at 230px - 220px = 10px (2.5%) */
-  padding-bottom: 0;
-  margin-bottom: 0;
 }
 
 .customer-sprite {
-  width: 180px;
-  height: 180px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
+  font-size: 48px;
+  line-height: 1;
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8));
   animation: customer-bob 2s ease-in-out infinite;
 }
@@ -1503,7 +1493,7 @@ main {
 .customer-patience {
   position: absolute;
   bottom: -15px;
-  width: 120px;
+  width: 50px;
   height: 4px;
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid var(--border-gold);
