@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Idle Bar Game",
-  description: "Tap beer, sell drinks, and upgrade your bar in this idle game."
+  description: "Tap bier, verkoop en upgrade je bar in deze idle game."
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="nl">
       <body>{children}</body>
     </html>
   );
