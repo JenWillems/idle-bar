@@ -2312,12 +2312,12 @@ main {
 /* Customer Pixel Art Style */
 .customer-pixel {
   position: absolute;
-  width: 60px;
-  height: 80px;
+  width: 100px;
+  height: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* Align to bottom so torso sits on bar */
   z-index: 15; /* Higher z-index to ensure skeletons are in front of background */
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
@@ -2337,12 +2337,12 @@ main {
 }
 
 .customer-name {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   color: var(--text);
   background: rgba(0, 0, 0, 0.7);
-  padding: 2px 6px;
+  padding: 3px 8px;
   border: 1px solid var(--border-gold);
-  margin-top: 4px;
+  margin-top: 6px;
   font-family: 'Cinzel', serif;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
@@ -2350,8 +2350,8 @@ main {
 
 .customer-opportunity {
   position: absolute;
-  top: -25px;
-  font-size: 24px;
+  top: -30px;
+  font-size: 28px;
   animation: opportunity-pulse 1s ease-in-out infinite;
   filter: drop-shadow(0 0 8px var(--accent-glow));
   z-index: 20;
@@ -2392,9 +2392,9 @@ main {
 
 .customer-patience {
   position: absolute;
-  bottom: -15px;
-  width: 50px;
-  height: 4px;
+  bottom: -18px;
+  width: 70px;
+  height: 5px;
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid var(--border-gold);
   overflow: hidden;

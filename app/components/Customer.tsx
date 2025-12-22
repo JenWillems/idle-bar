@@ -18,7 +18,12 @@ export default function Customer({ customer, onClick }: CustomerProps) {
         color: customer.color,
         cursor: customer.opportunity ? 'pointer' : 'default',
         transform: customer.direction === 'left' ? 'scaleX(-1)' : 'none',
-        transition: customer.walking ? 'left 0.5s linear' : 'none'
+        transition: customer.walking ? 'left 0.5s linear' : 'none',
+        border: `3px solid ${customer.color}`,
+        borderRadius: '8px',
+        padding: '8px',
+        backgroundColor: `${customer.color}15`,
+        boxShadow: `0 4px 12px ${customer.color}40, inset 0 0 20px ${customer.color}20`
       }}
       onClick={onClick}
     >
@@ -26,7 +31,7 @@ export default function Customer({ customer, onClick }: CustomerProps) {
         src={customer.sprite} 
         alt={customer.name}
         className="customer-sprite"
-        style={{ width: '60px', height: '60px', objectFit: 'contain' }}
+        style={{ width: '220px', height: '220px', objectFit: 'contain', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' }}
       />
       <div className="customer-name">{customer.name}</div>
       

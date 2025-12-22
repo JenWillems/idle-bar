@@ -22,6 +22,8 @@ export type UpgradeId =
   | "passive_income"
   | "auto_upgrade";
 
+export type UpgradeCategory = "TAP" | "PRICE" | "AUTOMATIC" | "MORAL" | "DRINK" | "AMBIANCE" | "MARKETING";
+
 export type Upgrade = {
   id: UpgradeId;
   name: string;
@@ -31,7 +33,7 @@ export type Upgrade = {
   level: number;
   maxLevel?: number;
   effect: number;
-  category: "TAP" | "PRIJS" | "AUTOMATISCH" | "MORAAL" | "DRANK" | "AMBIANCE" | "MARKETING";
+  category: UpgradeCategory;
 };
 
 export type LogEntry = {
@@ -39,7 +41,7 @@ export type LogEntry = {
   message: string;
 };
 
-export type DrinkType = "bier" | "wijn" | "cocktail" | "whiskey" | "champagne";
+export type DrinkType = "bier" | "wijn" | "cocktail" | "whiskey" | "champagne"; // Keep IDs as-is for consistency
 
 export type Drink = {
   type: DrinkType;
