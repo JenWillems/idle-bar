@@ -24,7 +24,7 @@ export default function BarScene({ customers, onCustomerClick, barOpen, onToggle
             color: barOpen ? "#86efac" : "#fca5a5"
           }}
         >
-          {barOpen ? "🟢 OPEN" : "🔴 CLOSED"}
+          {barOpen ? "🔴 CLOSE THE BAR" : "🟢 OPEN THE BAR"}
         </button>
       </div>
       <div className="bar-background">
@@ -35,8 +35,8 @@ export default function BarScene({ customers, onCustomerClick, barOpen, onToggle
           ))}
         </div>
         
-        {/* Customers */}
-        {customers.map((customer) => (
+        {/* Customers - only show when bar is open */}
+        {barOpen && customers.map((customer) => (
           <Customer
             key={customer.id}
             customer={customer}

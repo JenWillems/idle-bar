@@ -2309,31 +2309,30 @@ main {
   display: none; /* Hide since we have the image background */
 }
 
-/* Customer Pixel Art Style */
+/* Customer Pixel Art Style - Bigger, sitting at bar */
 .customer-pixel {
   position: absolute;
-  width: 60px;
-  height: 80px;
+  width: 110px;
+  height: 160px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   z-index: 15; /* Higher z-index to ensure skeletons are in front of background */
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  transform-origin: center bottom;
+  /* Position is set via inline style using bottom percentage - responsive to screen height */
 }
 
 .customer-sprite {
-  font-size: 48px;
-  line-height: 1;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8));
-  animation: customer-bob 2s ease-in-out infinite;
-}
-
-@keyframes customer-bob {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-3px); }
+  /* Removed floating animation - skeletons stay still */
+  margin-bottom: 8px;
 }
 
 .customer-name {

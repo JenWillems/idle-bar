@@ -697,7 +697,7 @@ export default function HomePage() {
   const [totalMoralChoices, setTotalMoralChoices] = useState(0);
   const [totalCustomersServed, setTotalCustomersServed] = useState(0);
   const [maxUpgradeLevel, setMaxUpgradeLevel] = useState(0);
-  const [barOpen, setBarOpen] = useState(true); // Bar is open by default
+  const [barOpen, setBarOpen] = useState(false); // Bar starts closed - customers only show when opened
   const [unlockedCustomers, setUnlockedCustomers] = useState<Set<SkeletonPersonality>>(new Set(["deco"])); // Start with Deco unlocked
   const [servedCustomers, setServedCustomers] = useState<Map<string, { personality: SkeletonPersonality; lastServed: number }>>(new Map()); // Track served customers for returns
   const [activeTab, setActiveTab] = useState<"stats" | "upgrades" | "achievements">("stats");
@@ -1245,7 +1245,9 @@ export default function HomePage() {
   };
 
   // Customer spawn systeem - Dave the Diver style
-  const stoolPositions = [15, 29, 43, 57, 71, 85];
+  // Positions adjusted to fit 6 larger skeletons (110px wide) across 480px bar width
+  // Skeletons are 110px wide (centered), evenly spaced across the bar
+  const stoolPositions = [8, 22, 36, 50, 64, 78];
 
   // Map upgrades to customer personalities they unlock
   const upgradeToCustomerMap: Record<string, SkeletonPersonality> = {
@@ -1295,118 +1297,133 @@ export default function HomePage() {
   }, [upgrades]);
 
   const spawnCustomer = useCallback((forceSpawn = false) => {
+    // Get current values from state/context BEFORE the functional update
+    const currentAmbianceLevel = upgrades.find((u: Upgrade) => u.id === "bar_ambiance")?.level ?? 0;
+    // Level 0: 1 customer, Level 1-2: 2 customers, Level 3-4: 3 customers, Level 5-6: 4 customers, Level 7-8: 5-6 customers
+    const maxCustomers = Math.min(1 + Math.floor((currentAmbianceLevel / 8) * 5), 6);
+    const currentPricePerGlass = stats.pricePerGlass;
+    const currentUnlocked = Array.from(unlockedCustomers);
+    const currentServed = Array.from(servedCustomers.values());
+    
     // Don't spawn if bar is closed (unless forced)
     if (!barOpen && !forceSpawn) return;
     
-    // Get bar_ambiance level to determine max customers
-    // Level 0: max 1 customer, Level 8: max 6 customers
-    const ambianceLevel = upgrades.find((u: Upgrade) => u.id === "bar_ambiance")?.level ?? 0;
-    const maxCustomers = Math.min(1 + Math.floor((ambianceLevel / 8) * 5), 6); // Scale from 1 to 6
-
-    // Count only seated customers (not walking in/out)
-    const seatedCustomers = customers.filter((c: Customer) => !c.walking && c.seatIndex !== null);
+    // Check if we have unlocked customers
+    if (currentUnlocked.length === 0) return;
     
-    if (seatedCustomers.length >= maxCustomers) {
-      return; // Bar is full
-    }
+    setCustomers((prevCustomers) => {
+      // Count only seated customers (not walking in/out)
+      const seatedCustomers = prevCustomers.filter((c: Customer) => !c.walking && c.seatIndex !== null);
+      
+      if (seatedCustomers.length >= maxCustomers) {
+        return prevCustomers; // Bar is full
+      }
 
-    // Find available seats
-    const occupiedSeats = new Set(
-      seatedCustomers.map((c: Customer) => c.seatIndex as number)
-    );
+      // Find available seats
+      const occupiedSeats = new Set(
+        seatedCustomers.map((c: Customer) => c.seatIndex as number)
+      );
 
-    const freeSeats = stoolPositions
-      .map((_, index) => index)
-      .filter((idx) => !occupiedSeats.has(idx));
+      const freeSeats = stoolPositions
+        .map((_, index) => index)
+        .filter((idx) => !occupiedSeats.has(idx));
 
-    if (freeSeats.length === 0) return;
+      if (freeSeats.length === 0) return prevCustomers;
 
-    const targetSeatIndex =
-      freeSeats[Math.floor(Math.random() * freeSeats.length)];
+      const targetSeatIndex = freeSeats[Math.floor(Math.random() * freeSeats.length)];
 
-    // Only use unlocked customer personalities
-    const unlockedPersonalities = Array.from(unlockedCustomers);
-    if (unlockedPersonalities.length === 0) return; // No customers unlocked yet
-    
-    // 30% chance for a returning customer if any have been served
-    let personality: SkeletonPersonality;
-    let isReturning = false;
-    if (servedCustomers.size > 0 && Math.random() < 0.3) {
-      // Pick a random served customer to return
-      const servedArray = Array.from(servedCustomers.values());
-      const returningCustomer = servedArray[Math.floor(Math.random() * servedArray.length)];
-      personality = returningCustomer.personality;
-      isReturning = true;
-    } else {
-      // Random unlocked skeleton personality
-      personality = unlockedPersonalities[Math.floor(Math.random() * unlockedPersonalities.length)];
-    }
-    const personalityData = skeletonPersonalities[personality];
-    
-    // Log if customer is returning
-    if (isReturning) {
-      pushLog(`🔄 ${personalityData.name} is back! Welcome back, regular customer!`);
-    }
-    
-    // Klant komt binnen van links
+      // Check for customers that should return (minimum once every 4 minutes)
+      const now = Date.now();
+      const fourMinutesAgo = now - (4 * 60 * 1000); // 4 minutes in milliseconds
+      
+      // Find customers who haven't returned in the last 4 minutes
+      const customersNeedingReturn = currentServed.filter(
+        (served) => served.lastServed < fourMinutesAgo
+      );
+      
+      let personality: SkeletonPersonality;
+      let isReturning = false;
+      
+      // Prioritize returning customers who haven't been back in 4+ minutes
+      if (customersNeedingReturn.length > 0) {
+        // Force a return for customers who haven't been back in 4+ minutes
+        const returningCustomer = customersNeedingReturn[Math.floor(Math.random() * customersNeedingReturn.length)];
+        personality = returningCustomer.personality;
+        isReturning = true;
+      } else if (currentServed.length > 0 && Math.random() < 0.3) {
+        // 30% chance for other returning customers
+        const returningCustomer = currentServed[Math.floor(Math.random() * currentServed.length)];
+        personality = returningCustomer.personality;
+        isReturning = true;
+      } else {
+        // New customer
+        personality = currentUnlocked[Math.floor(Math.random() * currentUnlocked.length)];
+      }
+      const personalityData = skeletonPersonalities[personality];
+      
+      if (isReturning) {
+        pushLog(`🔄 ${personalityData.name} is back! Welcome back, regular customer!`);
+        // Update lastServed time when customer returns
+        setServedCustomers((prev: Map<string, { personality: SkeletonPersonality; lastServed: number }>) => {
+          const newMap = new Map(prev);
+          newMap.set(personality, {
+            personality,
+            lastServed: Date.now()
+          });
+          return newMap;
+        });
+      }
+      
+      // Map each personality to a specific seat position for consistent placement
+      const personalitySeatMap: Record<SkeletonPersonality, number> = {
+        deco: 0,
+        evil: 1,
+        flower: 2,
+        rebel: 3,
+        smoking: 4,
+        witch: 5
+      };
+      
+      // Use personality-specific seat if available, otherwise use targetSeatIndex
+      const preferredSeat = personalitySeatMap[personality];
+      const finalSeatIndex = freeSeats.includes(preferredSeat) ? preferredSeat : targetSeatIndex;
+      
+      // Customer enters from the left - start at seat position immediately for visibility
       const newCustomer: Customer = {
         id: `customer-${Date.now()}-${Math.random()}`,
         name: personalityData.name,
-        x: -10, // Start buiten scherm
-        // Y-positie grofweg ter hoogte van de barkrukken
-        y: 55,
-        seatIndex: null,
+        x: stoolPositions[finalSeatIndex], // Start at seat position immediately
+        y: 20, // Bottom position: 20% from bottom aligns skeleton bottom with white bar top
+        seatIndex: finalSeatIndex,
         sprite: personalityData.image,
         personality,
         opportunity: null,
         opportunityTime: 0,
-        patience: 50 + personalityData.traits.patience * 0.5, // Base patience + personality modifier
-        orderValue: stats.pricePerGlass * (1 + personalityData.traits.generosity * 0.01 + Math.random() * 0.3), // Personality affects order value
+        patience: 50 + personalityData.traits.patience * 0.5,
+        orderValue: currentPricePerGlass * (1 + personalityData.traits.generosity * 0.01 + Math.random() * 0.3),
         color: personalityData.color,
-        walking: true,
+        walking: false, // Not walking, already at seat
         direction: "right"
       };
 
-      setCustomers((prev: Customer[]) => [...prev, newCustomer]);
-      
-      // Animate walking in
+      // Give opportunity once customer is seated (after a short delay)
       setTimeout(() => {
         setCustomers((prev: Customer[]) =>
           prev.map((c: Customer) =>
             c.id === newCustomer.id
               ? {
                   ...c,
-                  x: stoolPositions[targetSeatIndex],
-                  walking: false,
-                  seatIndex: targetSeatIndex
+                  opportunity: (Math.random() < 0.25 ? "moral_dilemma" : (["order", "tip", "special"] as CustomerOpportunity[])[Math.floor(Math.random() * 3)]) as CustomerOpportunity,
+                  opportunityTime: Date.now()
                 }
               : c
           )
         );
-        
-      // Give opportunity once customer is seated
-        setTimeout(() => {
-          // 25% chance for moral dilemma, 75% chance for normal opportunities
-          const isMoralDilemma = Math.random() < 0.25;
-          let opportunity: CustomerOpportunity;
-          
-          if (isMoralDilemma) {
-            opportunity = "moral_dilemma";
-          } else {
-            const normalOpportunities: CustomerOpportunity[] = ["order", "tip", "special"];
-            opportunity = normalOpportunities[Math.floor(Math.random() * normalOpportunities.length)];
-          }
-          
-          setCustomers((prev: Customer[]) =>
-            prev.map((c: Customer) =>
-              c.id === newCustomer.id
-                ? { ...c, opportunity, opportunityTime: Date.now() }
-                : c
-            )
-          );
       }, 800);
-      }, 500);
-  }, [customers, stoolPositions, stats.pricePerGlass, barOpen, unlockedCustomers, servedCustomers, upgrades]);
+
+      return [...prevCustomers, newCustomer];
+    });
+  }, [barOpen, unlockedCustomers, servedCustomers, upgrades, stats.pricePerGlass, pushLog]);
 
   useEffect(() => {
     // Only automatically spawn customers if bar is open
@@ -1429,8 +1446,34 @@ export default function HomePage() {
         // Check again if bar is still open and effect is still active
         if (!isActive) return;
         
-        // Always spawn 1 customer at a time (max customers is controlled by spawnCustomer function)
-        spawnCustomer();
+        // Get current max customers based on bar_ambiance level
+        const ambianceLevel = upgrades.find((u: Upgrade) => u.id === "bar_ambiance")?.level ?? 0;
+        const currentMaxCustomers = Math.min(1 + Math.floor((ambianceLevel / 8) * 5), 6);
+        
+        // Spawn multiple customers at once based on upgrade level
+        // Level 0: spawn 1, Level 1-2: spawn 2, Level 3-4: spawn 3, Level 5-6: spawn 4, Level 7-8: spawn up to max
+        let customersToSpawn = 1;
+        if (ambianceLevel >= 7) {
+          customersToSpawn = currentMaxCustomers; // Spawn all available slots
+        } else if (ambianceLevel >= 5) {
+          customersToSpawn = 4;
+        } else if (ambianceLevel >= 3) {
+          customersToSpawn = 3;
+        } else if (ambianceLevel >= 1) {
+          customersToSpawn = 2;
+        }
+        
+        // Don't spawn more than available seats
+        customersToSpawn = Math.min(customersToSpawn, currentMaxCustomers);
+        
+        // Spawn customers with a small delay between each for visual effect
+        for (let i = 0; i < customersToSpawn; i++) {
+          setTimeout(() => {
+            if (isActive) {
+              spawnCustomer();
+            }
+          }, i * 300); // 300ms delay between each customer spawn
+        }
         
         // Schedule next spawn if still active
         if (isActive) {
@@ -1494,7 +1537,7 @@ export default function HomePage() {
             const autoChance = 0.5 + (autoServiceLevel * 0.1);
             if (Math.random() < autoChance) {
               // Automatically make the first choice (normal service)
-              const quest = generateCustomerQuest(c);
+              const quest = generateCustomerQuest(c, stats.currentDrink.name, stats.drinkCapacity, c.orderValue);
               if (quest.choices.length > 0) {
                 const autoChoice = quest.choices[0]; // First choice = normal service
                 
@@ -1632,13 +1675,11 @@ export default function HomePage() {
 
   // Generate customer quest based on opportunity type and personality
   // Note: moral_dilemma opportunities don't use this function - they trigger moral events directly
-  function generateCustomerQuest(customer: Customer): CustomerQuest {
+  function generateCustomerQuest(customer: Customer, currentDrinkName: string, drinkCapacity: number, baseValue: number): CustomerQuest {
     // This should never be called with moral_dilemma, but handle it just in case
     if (customer.opportunity === "moral_dilemma" || !customer.opportunity) {
       throw new Error("Cannot generate quest for moral_dilemma or null opportunity");
     }
-    
-    const baseValue = customer.orderValue;
     const personalityData = skeletonPersonalities[customer.personality];
     const dialogueStyle = personalityData.traits.dialogueStyle;
     
@@ -1675,7 +1716,7 @@ export default function HomePage() {
         },
         {
           title: `${customer.name} has a question`,
-          description: `"I've heard you serve the best ${stats.currentDrink.name.toLowerCase()} here. Is that true?"`,
+          description: `"I've heard you serve the best ${currentDrinkName.toLowerCase()} here. Is that true?"`,
           choices: [
             {
               text: "Yes, and it costs €" + baseValue.toFixed(0),
@@ -1762,7 +1803,7 @@ export default function HomePage() {
               text: "Make a new one and apologize",
               moral: 3,
               money: 0,
-              beer: -stats.drinkCapacity,
+              beer: -drinkCapacity,
               consequence: `${customer.name} accepts your apology and stays a customer.`
             },
             {
@@ -1795,6 +1836,23 @@ export default function HomePage() {
       ...template
     };
   }
+
+  // Handle bar toggle
+  const handleToggleBar = useCallback(() => {
+    const willBeOpen = !barOpen;
+    
+    if (willBeOpen) {
+      setBarOpen(true);
+      pushLog(`Bar is now OPEN. Customers welcome!`);
+      // Spawn customer immediately when opening
+      setTimeout(() => {
+        spawnCustomer(true);
+      }, 200);
+    } else {
+      setBarOpen(false);
+      pushLog(`Bar is now CLOSED. No new customers.`);
+    }
+  }, [barOpen, pushLog, spawnCustomer]);
 
   // Handle customer opportunity click - show quest modal OR morale event
   // IMPORTANT: Morale events ONLY trigger when customer has "moral_dilemma" opportunity
@@ -1829,7 +1887,7 @@ export default function HomePage() {
       );
     } else if (customer.opportunity) {
       // Normal customer quest
-      const quest = generateCustomerQuest(customer);
+      const quest = generateCustomerQuest(customer, stats.currentDrink.name, stats.drinkCapacity, customer.orderValue);
       setActiveCustomerQuest(quest);
     } else {
       // No opportunity yet, just chat
@@ -2258,16 +2316,7 @@ export default function HomePage() {
             customers={customers}
             onCustomerClick={handleCustomerClick}
             barOpen={barOpen}
-            onToggleBar={() => {
-              const willBeOpen = !barOpen;
-              setBarOpen(willBeOpen);
-              
-              if (willBeOpen) {
-                pushLog(`Bar is now OPEN. Customers welcome!`);
-              } else {
-                pushLog(`Bar is now CLOSED. No new customers.`);
-              }
-            }}
+            onToggleBar={handleToggleBar}
           />
         </div>
 

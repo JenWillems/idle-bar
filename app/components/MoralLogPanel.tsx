@@ -31,7 +31,7 @@ export default function MoralLogPanel({ moralEffective, log }: MoralLogPanelProp
           <span className="moral-percentage" style={{ color: getMoralColor() }}>
             {moralEffective.toFixed(0)}%
           </span>
-        </div>
+          </div>
         <div className="moral-status-badge" style={{ 
           background: `${getMoralColor()}20`,
           borderColor: getMoralColor(),
@@ -64,7 +64,7 @@ export default function MoralLogPanel({ moralEffective, log }: MoralLogPanelProp
               </div>
             ))
           )}
-        </div>
+          </div>
       </div>
     </div>
   );

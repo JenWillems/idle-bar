@@ -30,7 +30,7 @@ export default function UpgradesPanel({
               <div className="upgrade-card-header">
                 <div className="upgrade-card-title">{upgrade.name}</div>
                 <div className="upgrade-card-category">{upgrade.category}</div>
-              </div>
+                </div>
               
               <div className="upgrade-card-body">
                 <div className="upgrade-card-description">{upgrade.description}</div>

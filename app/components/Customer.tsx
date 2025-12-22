@@ -14,7 +14,7 @@ export default function Customer({ customer, onClick }: CustomerProps) {
       className="customer-pixel"
       style={{
         left: `${customer.x}%`,
-        top: `${customer.y}%`,
+        bottom: `${customer.y}%`, // Use bottom instead of top to align with white bar
         color: customer.color,
         cursor: customer.opportunity ? 'pointer' : 'default',
         transform: customer.direction === 'left' ? 'scaleX(-1)' : 'none',
@@ -26,7 +26,6 @@ export default function Customer({ customer, onClick }: CustomerProps) {
         src={customer.sprite} 
         alt={customer.name}
         className="customer-sprite"
-        style={{ width: '60px', height: '60px', objectFit: 'contain' }}
       />
       <div className="customer-name">{customer.name}</div>
       
@@ -54,3 +53,4 @@ export default function Customer({ customer, onClick }: CustomerProps) {
     </div>
   );
 }
+
