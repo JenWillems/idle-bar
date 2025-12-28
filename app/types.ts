@@ -5,22 +5,20 @@ export type UpgradeId =
   | "auto_seller"
   | "premium_bier"
   | "staff_training"
-  | "wine_cellar"
-  | "cocktail_bar"
-  | "whiskey_collection"
-  | "champagne_service"
-  | "bar_ambiance"
-  | "live_music"
-  | "loyalty_program"
-  | "social_media"
   | "bar_expansion"
-  | "master_bartender"
   | "vip_section"
   | "late_night_hours"
-  | "auto_customer_service"
   | "smart_inventory"
-  | "passive_income"
-  | "auto_upgrade";
+  | "watered_down"
+  | "hidden_fees"
+  | "tip_stealing"
+  | "auto_upgrade"
+  | "quality_ingredients"
+  | "fair_wages"
+  | "customer_loyalty"
+  | "premium_service"
+  | "sustainable_practices"
+  | "community_support";
 
 export type Upgrade = {
   id: UpgradeId;
@@ -31,7 +29,7 @@ export type Upgrade = {
   level: number;
   maxLevel?: number;
   effect: number;
-  category: "TAP" | "PRIJS" | "AUTOMATISCH" | "MORAAL" | "DRANK" | "AMBIANCE" | "MARKETING";
+  category: "GOOD" | "EVIL" | "BUSINESS";
 };
 
 export type LogEntry = {
