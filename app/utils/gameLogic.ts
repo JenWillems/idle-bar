@@ -49,6 +49,7 @@ export function calculateOperatingCosts(
   const wateredDownLevel = upgrades.find((u: Upgrade) => u.id === "watered_down")?.level ?? 0;
   const tipStealingLevel = upgrades.find((u: Upgrade) => u.id === "tip_stealing")?.level ?? 0;
   const hiddenFeesLevel = upgrades.find((u: Upgrade) => u.id === "hidden_fees")?.level ?? 0;
+  const taxEvasionLevel = upgrades.find((u: Upgrade) => u.id === "tax_evasion")?.level ?? 0;
   
   // Good upgrades reduce costs
   const goodCostReduction = 
@@ -68,9 +69,13 @@ export function calculateOperatingCosts(
   // Fair wages increase base employee cost but reduce total through efficiency
   const adjustedEmployeeCost = baseEmployeeCost * (1 + fairWagesLevel * 0.2) * employeeModifier;
   
-  // Tax evasion through evil upgrades (cap at 50% reduction)
-  const taxEvasion = Math.min(0.5, tipStealingLevel * 0.15 + hiddenFeesLevel * 0.10);
-  const taxModifier = Math.max(0.5, 1 - taxEvasion);
+  // Tax evasion through evil upgrades (cap at 75% reduction)
+  const taxEvasion = Math.min(0.75, 
+    tipStealingLevel * 0.10 +      // Tip stealing helps hide income
+    hiddenFeesLevel * 0.05 +       // Hidden fees help with cash flow
+    taxEvasionLevel * 0.20         // Direct tax evasion is most effective
+  );
+  const taxModifier = Math.max(0.25, 1 - taxEvasion);
   
   const barStock = Math.max(1, baseBarStockCost * barStockModifier);
   const employeeCost = Math.max(0, adjustedEmployeeCost);

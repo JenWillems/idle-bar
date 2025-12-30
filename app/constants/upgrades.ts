@@ -1,6 +1,7 @@
 import type { Upgrade } from "../types";
 
 export const initialUpgrades: Upgrade[] = [
+  // BUSINESS - Core upgrades
   {
     id: "tap_speed",
     name: "Faster Production",
@@ -23,7 +24,7 @@ export const initialUpgrades: Upgrade[] = [
   },
   {
     id: "auto_seller",
-    name: "Automated Sales",
+    name: "Hire Staff",
     description: "Hire staff to handle sales automatically. Essential for idle gameplay. They work while you sleep. Money flows in 24/7.",
     baseCost: 50,
     costMultiplier: 1.45,
@@ -51,6 +52,7 @@ export const initialUpgrades: Upgrade[] = [
     effect: 0.1,
     category: "BUSINESS"
   },
+  // EVIL - Cost reduction through unethical means
   {
     id: "sell_price",
     name: "Price Gouging",
@@ -59,36 +61,6 @@ export const initialUpgrades: Upgrade[] = [
     costMultiplier: 1.45,
     level: 0,
     effect: 0.2,
-    category: "EVIL"
-  },
-  {
-    id: "premium_bier",
-    name: "Overpriced Beer",
-    description: "Call it 'premium' and charge double. Most won't notice the difference. It's the same beer, but now it has a fancy label and costs €8 instead of €4. Genius!",
-    baseCost: 120,
-    costMultiplier: 1.45,
-    level: 0,
-    effect: 0.35,
-    category: "EVIL"
-  },
-  {
-    id: "vip_section",
-    name: "Exclusive VIP Area",
-    description: "Create an elitist section that excludes regular customers. Make them feel special while you charge them triple. They'll pay for the privilege of feeling superior.",
-    baseCost: 2000,
-    costMultiplier: 1.75,
-    level: 0,
-    effect: 0.5,
-    category: "EVIL"
-  },
-  {
-    id: "late_night_hours",
-    name: "Exploit Late Night Crowd",
-    description: "Stay open late to take advantage of drunk customers who don't check prices. At 2 AM, €10 for a beer seems reasonable. (It's not reasonable, but they're too drunk to notice.)",
-    baseCost: 700,
-    costMultiplier: 1.5,
-    level: 0,
-    effect: 0.3,
     category: "EVIL"
   },
   {
@@ -122,6 +94,17 @@ export const initialUpgrades: Upgrade[] = [
     category: "EVIL"
   },
   {
+    id: "tax_evasion",
+    name: "Tax Evasion",
+    description: "Hide your income from the tax authorities. Creative accounting, offshore accounts, and 'forgetting' to report income. Risky, but saves you money. What they don't know won't hurt them... until it does.",
+    baseCost: 300,
+    costMultiplier: 1.5,
+    level: 0,
+    effect: 0.3,
+    category: "EVIL"
+  },
+  // GOOD - Ethical cost reduction and quality
+  {
     id: "staff_training",
     name: "Team Coaching",
     description: "Invest in your staff's wellbeing. Happy employees create a better atmosphere. They work harder, stay longer, and actually care. Long-term investment that pays off.",
@@ -134,7 +117,7 @@ export const initialUpgrades: Upgrade[] = [
   {
     id: "quality_ingredients",
     name: "Premium Ingredients",
-    description: "Use real, quality ingredients instead of the cheap stuff. Customers notice the difference and are willing to pay more. Takes time to build reputation, but worth it.",
+    description: "Use real, quality ingredients instead of the cheap stuff. Customers notice the difference and are willing to pay more. Higher cost upfront, but builds reputation and increases prices.",
     baseCost: 400,
     costMultiplier: 1.6,
     level: 0,
@@ -144,31 +127,11 @@ export const initialUpgrades: Upgrade[] = [
   {
     id: "fair_wages",
     name: "Fair Wages",
-    description: "Pay your staff a living wage. They'll be more loyal, work harder, and provide better service. Expensive upfront, but reduces turnover and improves everything long-term.",
+    description: "Pay your staff a living wage. They'll be more loyal, work harder, and provide better service. Expensive upfront, but reduces costs long-term through efficiency.",
     baseCost: 600,
     costMultiplier: 1.65,
     level: 0,
     effect: 0.25,
-    category: "GOOD"
-  },
-  {
-    id: "customer_loyalty",
-    name: "Genuine Loyalty Program",
-    description: "Build real relationships with customers. They'll return more often, recommend you to friends, and pay premium prices because they trust you. Slow start, huge payoff.",
-    baseCost: 500,
-    costMultiplier: 1.55,
-    level: 0,
-    effect: 0.35,
-    category: "GOOD"
-  },
-  {
-    id: "premium_service",
-    name: "Exceptional Service",
-    description: "Train staff to provide truly excellent service. Customers remember great experiences and come back. Word spreads. Expensive to maintain, but builds a reputation that lasts.",
-    baseCost: 800,
-    costMultiplier: 1.7,
-    level: 0,
-    effect: 0.4,
     category: "GOOD"
   },
   {
@@ -181,16 +144,7 @@ export const initialUpgrades: Upgrade[] = [
     effect: 0.2,
     category: "GOOD"
   },
-  {
-    id: "community_support",
-    name: "Community Investment",
-    description: "Support local events, sponsor teams, give back to the community. People remember who supports them. Builds lasting goodwill that translates to steady, loyal customers.",
-    baseCost: 900,
-    costMultiplier: 1.75,
-    level: 0,
-    effect: 0.3,
-    category: "GOOD"
-  },
+  // BUSINESS - Drink unlocks
   {
     id: "wine_cellar",
     name: "Wine Cellar",

@@ -134,21 +134,14 @@ export const upgradeToCustomerMap: Record<string, SkeletonPersonality> = {
   "tap_amount": "rebel",
   "sell_price": "smoking",
   "auto_seller": "flower",
-  "premium_bier": "witch",
   "staff_training": "deco",
-  "bar_expansion": "witch",
-  "vip_section": "evil",
-  "late_night_hours": "rebel",
   "watered_down": "evil",
   "hidden_fees": "smoking",
   "tip_stealing": "evil",
-  "auto_upgrade": "evil",
+  "tax_evasion": "smoking",
   "quality_ingredients": "flower",
   "fair_wages": "deco",
-  "customer_loyalty": "flower",
-  "premium_service": "witch",
-  "sustainable_practices": "rebel",
-  "community_support": "deco"
+  "sustainable_practices": "rebel"
 };
 
 export const stoolPositions = [8, 22, 36, 50, 64, 78];

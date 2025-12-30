@@ -27,8 +27,8 @@ export function useCustomerSpawning({
   pushLog
 }: UseCustomerSpawningProps) {
   const spawnCustomer = useCallback((forceSpawn = false) => {
-    const currentExpansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
-    const maxCustomers = Math.min(1 + Math.floor((currentExpansionLevel / 8) * 5), 6);
+    const barExpansionLevel = upgrades.find((u) => u.id === "bar_expansion")?.level ?? 0;
+    const maxCustomers = 3 + barExpansionLevel; // Base 3, +1 per bar expansion level
     const currentUnlocked = Array.from(unlockedCustomers);
     const currentServed = Array.from(servedCustomers.values());
     
@@ -150,16 +150,15 @@ export function useCustomerSpawning({
     const scheduleSpawn = () => {
       if (!isActive) return;
       
-      const currentExpansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
-      // Much slower spawn rate - base 15-25 seconds, reduced by upgrade but still slow
+      // Much slower spawn rate - base 15-25 seconds
       const baseInterval = 15000 + Math.random() * 10000;
-      const spawnInterval = Math.max(8000, baseInterval - (currentExpansionLevel * 500));
+      const spawnInterval = Math.max(8000, baseInterval);
       
       timeoutId = setTimeout(() => {
         if (!isActive) return;
         
-        const maxCustomersExpansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
-        const currentMaxCustomers = Math.min(1 + Math.floor((maxCustomersExpansionLevel / 8) * 5), 6);
+        const barExpansionLevel = upgrades.find((u) => u.id === "bar_expansion")?.level ?? 0;
+        const currentMaxCustomers = 3 + barExpansionLevel; // Base 3, +1 per bar expansion level
         
         // Always spawn only 1 customer at a time - slower, more relaxed pace
         let customersToSpawn = 1;

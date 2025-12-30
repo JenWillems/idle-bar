@@ -27,20 +27,13 @@ export function useGameStats(
     const tapAmountLevel = upgrades.find((u: Upgrade) => u.id === "tap_amount")?.level ?? 0;
     const sellPriceLevel = upgrades.find((u: Upgrade) => u.id === "sell_price")?.level ?? 0;
     const autoSellerLevel = upgrades.find((u: Upgrade) => u.id === "auto_seller")?.level ?? 0;
-    const premiumLevel = upgrades.find((u: Upgrade) => u.id === "premium_bier")?.level ?? 0;
     const staffLevel = upgrades.find((u: Upgrade) => u.id === "staff_training")?.level ?? 0;
-    const expansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
-    const vipLevel = upgrades.find((u: Upgrade) => u.id === "vip_section")?.level ?? 0;
-    const lateNightLevel = upgrades.find((u: Upgrade) => u.id === "late_night_hours")?.level ?? 0;
     const wateredDownLevel = upgrades.find((u: Upgrade) => u.id === "watered_down")?.level ?? 0;
     const hiddenFeesLevel = upgrades.find((u: Upgrade) => u.id === "hidden_fees")?.level ?? 0;
     const tipStealingLevel = upgrades.find((u: Upgrade) => u.id === "tip_stealing")?.level ?? 0;
     const qualityIngredientsLevel = upgrades.find((u: Upgrade) => u.id === "quality_ingredients")?.level ?? 0;
     const fairWagesLevel = upgrades.find((u: Upgrade) => u.id === "fair_wages")?.level ?? 0;
-    const customerLoyaltyLevel = upgrades.find((u: Upgrade) => u.id === "customer_loyalty")?.level ?? 0;
-    const premiumServiceLevel = upgrades.find((u: Upgrade) => u.id === "premium_service")?.level ?? 0;
     const sustainablePracticesLevel = upgrades.find((u: Upgrade) => u.id === "sustainable_practices")?.level ?? 0;
-    const communitySupportLevel = upgrades.find((u: Upgrade) => u.id === "community_support")?.level ?? 0;
 
     const drinkProductionTime = currentDrink.productionTime * (1 - tapSpeedLevel * 0.05);
     const tapInterval = Math.max(300, drinkProductionTime * (1 - tapSpeedLevel * 0.05));
@@ -51,34 +44,28 @@ export function useGameStats(
     const drinkLevel = currentDrink.level;
     const priceBonus =
       sellPriceLevel * 0.3 + 
-      premiumLevel * 0.4 + 
       staffLevel * 0.05 +
-      vipLevel * 0.3 +
-      lateNightLevel * 0.2 +
       hiddenFeesLevel * 0.15 +
       tipStealingLevel * 0.1 +
       wateredDownLevel * 0.25 +
       qualityIngredientsLevel * 0.2 +
       fairWagesLevel * 0.15 +
-      customerLoyaltyLevel * 0.25 +
-      premiumServiceLevel * 0.3 +
       sustainablePracticesLevel * 0.12 +
-      communitySupportLevel * 0.18 +
       drinkLevel * 0.1;
     const finalPricePerGlass = basePricePerGlass * (1 + priceBonus);
 
     const autoSellInterval =
       BASE_SELL_INTERVAL * Math.max(0.3, 1 - autoSellerLevel * 0.12 - fairWagesLevel * 0.05 - sustainablePracticesLevel * 0.03);
     const autoSellBatch =
-      BASE_SELL_BATCH * (1 + autoSellerLevel * 0.25 + staffLevel * 0.1 + fairWagesLevel * 0.15 + premiumServiceLevel * 0.1);
+      BASE_SELL_BATCH * (1 + autoSellerLevel * 0.25 + staffLevel * 0.1 + fairWagesLevel * 0.15);
 
     const moralEffective = Math.min(
       130,
-      Math.max(0, moral + staffLevel * 4 + qualityIngredientsLevel * 2 + fairWagesLevel * 3 + customerLoyaltyLevel * 2 + communitySupportLevel * 3 + sustainablePracticesLevel * 2 + premiumServiceLevel * 2 - autoSellerLevel * 2 - wateredDownLevel * 1 - hiddenFeesLevel * 1 - tipStealingLevel * 2)
+      Math.max(0, moral + staffLevel * 4 + qualityIngredientsLevel * 2 + fairWagesLevel * 3 + sustainablePracticesLevel * 2 - autoSellerLevel * 2 - wateredDownLevel * 1 - hiddenFeesLevel * 1 - tipStealingLevel * 2)
     );
     
-    const improvedAutoSellInterval = autoSellInterval * (1 - lateNightLevel * 0.05 - sustainablePracticesLevel * 0.03);
-    const improvedAutoSellBatch = autoSellBatch * (1 + expansionLevel * 0.15 + customerLoyaltyLevel * 0.1 + premiumServiceLevel * 0.08);
+    const improvedAutoSellInterval = autoSellInterval * (1 - sustainablePracticesLevel * 0.03);
+    const improvedAutoSellBatch = autoSellBatch;
 
     let moralMultiplier = 1.0;
     let priceMultiplier = 1.0;
