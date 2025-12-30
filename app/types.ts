@@ -8,7 +8,6 @@ export type UpgradeId =
   | "bar_expansion"
   | "vip_section"
   | "late_night_hours"
-  | "smart_inventory"
   | "watered_down"
   | "hidden_fees"
   | "tip_stealing"
@@ -18,7 +17,11 @@ export type UpgradeId =
   | "customer_loyalty"
   | "premium_service"
   | "sustainable_practices"
-  | "community_support";
+  | "community_support"
+  | "wine_cellar"
+  | "cocktail_bar"
+  | "whiskey_collection"
+  | "champagne_service";
 
 export type Upgrade = {
   id: UpgradeId;
@@ -84,6 +87,7 @@ export type Customer = {
   color: string;
   walking: boolean;
   direction: "left" | "right";
+  timesOrdered: number; // Track how many times this customer has ordered
 };
 
 export type MoralChoice = {

@@ -29,7 +29,7 @@ import { skeletonPersonalities, upgradeToCustomerMap } from "./constants/skeleto
 import { getRandomDialog } from "./constants/dialogs";
 
 // Import utilities
-import { calculateUpgradeCost } from "./utils/gameLogic";
+import { calculateUpgradeCost, calculateOperatingCosts } from "./utils/gameLogic";
 import { generateCustomerQuest } from "./utils/customerUtils";
 import { triggerPunishment } from "./utils/punishmentHandler";
 
@@ -69,6 +69,7 @@ export default function HomePage() {
   const [unlockedCustomers, setUnlockedCustomers] = useState<Set<SkeletonPersonality>>(new Set(["deco"])); // Start with Deco unlocked
   const [servedCustomers, setServedCustomers] = useState<Map<string, { personality: SkeletonPersonality; lastServed: number }>>(new Map()); // Track served customers for returns
   const [activeTab, setActiveTab] = useState<"stats" | "upgrades" | "achievements">("stats");
+  const [lastCostTime, setLastCostTime] = useState(Date.now());
 
   // Use extracted hook for game stats
   const stats = useGameStats(upgrades, moral, prestigePoints, drinks, activeDrink);
@@ -270,6 +271,57 @@ export default function HomePage() {
     }
   }, [upgrades, maxUpgradeLevel]);
 
+  // Operating costs - bar stock, employee costs, and taxes
+  useEffect(() => {
+    const chargeCosts = () => {
+      const now = Date.now();
+      const timeSinceLastCost = now - lastCostTime;
+      const costInterval = 60000; // Charge costs every 60 seconds (1 minute)
+      
+      if (timeSinceLastCost >= costInterval) {
+        // Use current money value from state
+        setMoney((currentMoney: number) => {
+          const costs = calculateOperatingCosts(currentMoney, upgrades, stats.tapPerTick, stats.tapInterval);
+          
+          if (costs.total > 0) {
+            const newMoney = Math.max(0, currentMoney - costs.total);
+            
+            // Log cost breakdown
+            const costBreakdown: string[] = [];
+            if (costs.barStock > 0) {
+              costBreakdown.push(`Stock: €${costs.barStock}`);
+            }
+            if (costs.employeeCost > 0) {
+              costBreakdown.push(`Employees: €${costs.employeeCost}`);
+            }
+            if (costs.taxes > 0) {
+              costBreakdown.push(`Taxes: €${costs.taxes}`);
+            }
+            
+            if (costBreakdown.length > 0) {
+              pushLog(`[COSTS] ${costBreakdown.join(", ")} (Total: €${costs.total})`);
+            }
+            
+            // Show skeleton comment occasionally
+            if (Math.random() < 0.3 && costs.total > 0) {
+              const dialog = getRandomDialog("sell", moral);
+              showSkeletonComment(dialog);
+            }
+            
+            return newMoney;
+          }
+          
+          return currentMoney;
+        });
+        
+        setLastCostTime(now);
+      }
+    };
+    
+    const id = window.setInterval(chargeCosts, 5000); // Check every 5 seconds
+    return () => window.clearInterval(id);
+  }, [lastCostTime, upgrades, stats.tapPerTick, stats.tapInterval, moral, pushLog, showSkeletonComment]);
+
 
   // Unlock customers when upgrades are purchased
   useEffect(() => {
@@ -357,30 +409,6 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [upgrades, money, pushLog]);
 
-  // Automatische drank selectie (idle gameplay)
-  useEffect(() => {
-    const smartInventoryLevel = upgrades.find((u: Upgrade) => u.id === "smart_inventory")?.level ?? 0;
-    if (smartInventoryLevel <= 0) return;
-
-    const selectBestDrink = () => {
-      const unlockedDrinks = drinks.filter((d: Drink) => d.unlocked);
-      if (unlockedDrinks.length <= 1) return;
-
-      const bestDrink = unlockedDrinks.reduce((best: Drink, current: Drink) => {
-        const bestProfit = best.basePrice / best.productionTime;
-        const currentProfit = current.basePrice / current.productionTime;
-        return currentProfit > bestProfit ? current : best;
-      });
-
-      if (bestDrink.type !== activeDrink) {
-        setActiveDrink(bestDrink.type);
-        pushLog(`[AUTO] Switched to ${bestDrink.name} for maximum profit.`);
-      }
-    };
-
-    const interval = setInterval(selectBestDrink, 10000);
-    return () => clearInterval(interval);
-  }, [drinks, activeDrink, upgrades, pushLog]);
 
   // Passive income removed - no longer needed
 
@@ -408,6 +436,18 @@ export default function HomePage() {
     const customer = customers.find((c: Customer) => c.id === customerId);
     if (!customer || activeCustomerQuest || activeChoice) return;
 
+    // Check if customer has already ordered too many times (max 2)
+    if (customer.timesOrdered >= 2 && customer.opportunity && customer.opportunity !== "moral_dilemma") {
+      const personalityData = skeletonPersonalities[customer.personality];
+      const catchphrase = personalityData.traits.catchphrases[
+        Math.floor(Math.random() * personalityData.traits.catchphrases.length)
+      ];
+      pushLog(`${customer.name}: "${catchphrase}"`);
+      pushLog(`${customer.name} is just here to relax, not to order.`);
+      showSkeletonComment(`${customer.name} is just enjoying the atmosphere...`);
+      return;
+    }
+
     // ONLY trigger morale event if customer has moral_dilemma opportunity
     if (customer.opportunity === "moral_dilemma") {
       // Trigger a morale event - this customer has a moral dilemma to discuss
@@ -433,8 +473,8 @@ export default function HomePage() {
             : c
         )
       );
-    } else if (customer.opportunity) {
-      // Normal customer quest
+    } else if (customer.opportunity && customer.timesOrdered < 2) {
+      // Normal customer quest - only if they haven't ordered too many times
       const quest = generateCustomerQuest(customer, stats.currentDrink.name, stats.drinkCapacity, customer.orderValue, { currentDrink: stats.currentDrink });
       setActiveCustomerQuest(quest);
     } else {
@@ -478,6 +518,15 @@ export default function HomePage() {
     // Track this customer as served so they can return
     const servedCustomer = customers.find((c: Customer) => c.id === activeCustomerQuest.customerId);
     if (servedCustomer) {
+      // Increment timesOrdered and remove opportunity after ordering
+      setCustomers((prev: Customer[]) =>
+        prev.map((c: Customer) =>
+          c.id === activeCustomerQuest.customerId
+            ? { ...c, timesOrdered: (c.timesOrdered || 0) + 1, opportunity: null }
+            : c
+        )
+      );
+      
       setServedCustomers((prev: Map<string, { personality: SkeletonPersonality; lastServed: number }>) => {
         const newMap = new Map(prev);
         newMap.set(servedCustomer.personality, {
@@ -562,6 +611,15 @@ export default function HomePage() {
     
     // If this was triggered by a customer, track them as served so they can return
     if (customerForMoralEvent) {
+      // Increment timesOrdered for moral choices too
+      setCustomers((prev: Customer[]) =>
+        prev.map((c: Customer) =>
+          c.id === customerForMoralEvent.id
+            ? { ...c, timesOrdered: (c.timesOrdered || 0) + 1, opportunity: null, walking: true, direction: "left" as const }
+            : c
+        )
+      );
+      
       setServedCustomers((prev: Map<string, { personality: SkeletonPersonality; lastServed: number }>) => {
         const newMap = new Map(prev);
         newMap.set(customerForMoralEvent.personality, {
@@ -570,15 +628,6 @@ export default function HomePage() {
         });
         return newMap;
       });
-      
-      // Customer leaves after moral choice
-      setCustomers((prev: Customer[]) =>
-        prev.map((c: Customer) =>
-          c.id === customerForMoralEvent.id
-            ? { ...c, opportunity: null, walking: true, direction: "left" as const }
-            : c
-        )
-      );
     }
 
     // Log the choice and consequence with sarcastic dialogue
@@ -667,7 +716,28 @@ export default function HomePage() {
         return newMoney;
       });
       
-      // Drink unlocking removed - focus on money-making upgrades only
+      // Unlock drinks when specific upgrades are purchased
+      if (upgradeId === "wine_cellar" && upgrade.level === 0) {
+        setDrinks((prev: Drink[]) => 
+          prev.map((d: Drink) => d.type === "wijn" ? { ...d, unlocked: true } : d)
+        );
+        pushLog("🍷 Wine Cellar unlocked! You can now serve wine.");
+      } else if (upgradeId === "cocktail_bar" && upgrade.level === 0) {
+        setDrinks((prev: Drink[]) => 
+          prev.map((d: Drink) => d.type === "cocktail" ? { ...d, unlocked: true } : d)
+        );
+        pushLog("🍸 Cocktail Bar unlocked! Time to mix!");
+      } else if (upgradeId === "whiskey_collection" && upgrade.level === 0) {
+        setDrinks((prev: Drink[]) => 
+          prev.map((d: Drink) => d.type === "whiskey" ? { ...d, unlocked: true } : d)
+        );
+        pushLog("🥃 Whiskey Collection unlocked! For the connoisseurs.");
+      } else if (upgradeId === "champagne_service" && upgrade.level === 0) {
+        setDrinks((prev: Drink[]) => 
+          prev.map((d: Drink) => d.type === "champagne" ? { ...d, unlocked: true } : d)
+        );
+        pushLog("🍾 Champagne Service unlocked! Cheers!");
+      }
       
       // Alleen 30% kans op skeleton comment bij succesvolle upgrade
       if (Math.random() > 0.7) {
@@ -691,6 +761,10 @@ export default function HomePage() {
   const incomePerGlass = stats.pricePerGlass;
   const approxIncomePerMinute =
     (stats.tapPerTick / stats.drinkCapacity) * incomePerGlass * (60000 / stats.tapInterval);
+  
+  // Calculate operating costs for display
+  const operatingCosts = calculateOperatingCosts(money, upgrades, stats.tapPerTick, stats.tapInterval);
+  const costsPerMinute = operatingCosts.total; // Costs are charged every 60 seconds (1 minute)
 
   return (
     <main className="dave-layout">
@@ -737,26 +811,42 @@ export default function HomePage() {
           <div className="compact-card">
             {/* Drink Selector - Compact */}
             <div className="drink-selector-compact">
-              {drinks.map((drink: Drink) => (
-                <button
-                  key={drink.type}
-                  onClick={() => {
-                    if (drink.unlocked) {
-                      setActiveDrink(drink.type);
-                      pushLog(`Switched to ${drink.name}.`);
-                    }
-                  }}
-                  disabled={!drink.unlocked}
-                  className={`drink-btn ${activeDrink === drink.type ? "active" : ""} ${!drink.unlocked ? "locked" : ""}`}
-                >
-                  {drink.type === "bier" && "🍺"}
-                  {drink.type === "wijn" && "🍷"}
-                  {drink.type === "cocktail" && "🍸"}
-                  {drink.type === "whiskey" && "🥃"}
-                  {drink.type === "champagne" && "🍾"}
-                  {!drink.unlocked && "🔒"}
-                </button>
-              ))}
+              {drinks.map((drink: Drink) => {
+                const getDrinkImage = (type: DrinkType) => {
+                  switch (type) {
+                    case "bier": return "/img/beer.png";
+                    case "wijn": return "/img/wine.png";
+                    case "cocktail": return "/img/cocktail.png";
+                    case "whiskey": return "/img/whiskey.png";
+                    case "champagne": return "/img/champange.png";
+                    default: return "";
+                  }
+                };
+                
+                return (
+                  <button
+                    key={drink.type}
+                    onClick={() => {
+                      if (drink.unlocked) {
+                        setActiveDrink(drink.type);
+                        pushLog(`Switched to ${drink.name}.`);
+                      }
+                    }}
+                    disabled={!drink.unlocked}
+                    className={`drink-btn ${activeDrink === drink.type ? "active" : ""} ${!drink.unlocked ? "locked" : ""}`}
+                  >
+                    {drink.unlocked ? (
+                      <img 
+                        src={getDrinkImage(drink.type)} 
+                        alt={drink.name}
+                        className="drink-icon"
+                      />
+                    ) : (
+                      <span className="drink-locked">🔒</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Compact Stats Grid */}
@@ -798,6 +888,37 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+
+            {/* Operating Costs Display */}
+            {operatingCosts.total > 0 && (
+              <div className="costs-display">
+                <div className="costs-header">Operating Costs (per minute)</div>
+                <div className="costs-breakdown">
+                  {operatingCosts.barStock > 0 && (
+                    <div className="cost-item">
+                      <span className="cost-label">📦 Stock:</span>
+                      <span className="cost-value">€{operatingCosts.barStock}</span>
+                    </div>
+                  )}
+                  {operatingCosts.employeeCost > 0 && (
+                    <div className="cost-item">
+                      <span className="cost-label">👥 Employees:</span>
+                      <span className="cost-value">€{operatingCosts.employeeCost}</span>
+                    </div>
+                  )}
+                  {operatingCosts.taxes > 0 && (
+                    <div className="cost-item">
+                      <span className="cost-label">💰 Taxes:</span>
+                      <span className="cost-value">€{operatingCosts.taxes}</span>
+                    </div>
+                  )}
+                  <div className="cost-item total">
+                    <span className="cost-label">Total:</span>
+                    <span className="cost-value">€{operatingCosts.total} (~€{costsPerMinute.toFixed(0)}/min)</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Moral Effect - Compact */}
             {stats.moralEffective >= 90 && (

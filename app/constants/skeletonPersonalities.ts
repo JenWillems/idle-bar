@@ -139,7 +139,6 @@ export const upgradeToCustomerMap: Record<string, SkeletonPersonality> = {
   "bar_expansion": "witch",
   "vip_section": "evil",
   "late_night_hours": "rebel",
-  "smart_inventory": "smoking",
   "watered_down": "evil",
   "hidden_fees": "smoking",
   "tip_stealing": "evil",

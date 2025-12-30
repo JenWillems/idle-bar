@@ -92,16 +92,6 @@ export const initialUpgrades: Upgrade[] = [
     category: "EVIL"
   },
   {
-    id: "smart_inventory",
-    name: "Profit Optimization",
-    description: "Always choose the most profitable option, regardless of customer preference. They asked for wine? Give them the cheapest one and charge for premium. They won't know the difference.",
-    baseCost: 300,
-    costMultiplier: 1.45,
-    level: 0,
-    effect: 0.25,
-    category: "EVIL"
-  },
-  {
     id: "watered_down",
     name: "Water Down Drinks",
     description: "Dilute the alcohol content. Customers won't notice until they're too drunk to care. More profit per bottle, less alcohol per customer. Win-win! (For you, not them.)",
@@ -200,5 +190,49 @@ export const initialUpgrades: Upgrade[] = [
     level: 0,
     effect: 0.3,
     category: "GOOD"
+  },
+  {
+    id: "wine_cellar",
+    name: "Wine Cellar",
+    description: "Install a proper wine cellar to serve quality wines. Unlocks wine production.",
+    baseCost: 500,
+    costMultiplier: 1.5,
+    level: 0,
+    maxLevel: 1,
+    effect: 0.2,
+    category: "BUSINESS"
+  },
+  {
+    id: "cocktail_bar",
+    name: "Cocktail Bar",
+    description: "Set up a professional cocktail bar with all the tools. Unlocks cocktail production.",
+    baseCost: 800,
+    costMultiplier: 1.6,
+    level: 0,
+    maxLevel: 1,
+    effect: 0.25,
+    category: "BUSINESS"
+  },
+  {
+    id: "whiskey_collection",
+    name: "Whiskey Collection",
+    description: "Curate a premium whiskey selection. Unlocks whiskey production.",
+    baseCost: 1200,
+    costMultiplier: 1.65,
+    level: 0,
+    maxLevel: 1,
+    effect: 0.3,
+    category: "BUSINESS"
+  },
+  {
+    id: "champagne_service",
+    name: "Champagne Service",
+    description: "Add luxury champagne service for special occasions. Unlocks champagne production.",
+    baseCost: 2000,
+    costMultiplier: 1.7,
+    level: 0,
+    maxLevel: 1,
+    effect: 0.35,
+    category: "BUSINESS"
   }
 ];

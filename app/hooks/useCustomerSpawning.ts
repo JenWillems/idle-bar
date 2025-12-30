@@ -116,16 +116,20 @@ export function useCustomerSpawning({
         orderValue: stats.pricePerGlass * (1 + personalityData.traits.generosity * 0.01 + Math.random() * 0.3),
         color: personalityData.color,
         walking: false,
-        direction: "right"
+        direction: "right",
+        timesOrdered: 0
       };
 
+      // Very rare opportunity chance - only 10-15% of customers will order anything
+      // Sometimes nobody orders anything (70-85% chance of no opportunity)
       setTimeout(() => {
         setCustomers((prev: Customer[]) =>
           prev.map((c: Customer) =>
             c.id === newCustomer.id
               ? {
                   ...c,
-                  opportunity: (Math.random() < 0.25 ? "moral_dilemma" : (["order", "tip", "special"] as any[])[Math.floor(Math.random() * 3)]) as any,
+                  // Only 12% chance of any opportunity, and only if they haven't ordered before
+                  opportunity: (Math.random() < 0.12 ? (Math.random() < 0.3 ? "moral_dilemma" : (["order", "tip", "special"] as any[])[Math.floor(Math.random() * 3)]) as any : null),
                   opportunityTime: Date.now()
                 }
               : c
@@ -147,8 +151,9 @@ export function useCustomerSpawning({
       if (!isActive) return;
       
       const currentExpansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
-      const baseInterval = 3000 + Math.random() * 2000;
-      const spawnInterval = Math.max(2000, baseInterval - (currentExpansionLevel * 150));
+      // Much slower spawn rate - base 15-25 seconds, reduced by upgrade but still slow
+      const baseInterval = 15000 + Math.random() * 10000;
+      const spawnInterval = Math.max(8000, baseInterval - (currentExpansionLevel * 500));
       
       timeoutId = setTimeout(() => {
         if (!isActive) return;
@@ -156,16 +161,8 @@ export function useCustomerSpawning({
         const maxCustomersExpansionLevel = upgrades.find((u: Upgrade) => u.id === "bar_expansion")?.level ?? 0;
         const currentMaxCustomers = Math.min(1 + Math.floor((maxCustomersExpansionLevel / 8) * 5), 6);
         
+        // Always spawn only 1 customer at a time - slower, more relaxed pace
         let customersToSpawn = 1;
-        if (maxCustomersExpansionLevel >= 7) {
-          customersToSpawn = currentMaxCustomers;
-        } else if (maxCustomersExpansionLevel >= 5) {
-          customersToSpawn = 4;
-        } else if (maxCustomersExpansionLevel >= 3) {
-          customersToSpawn = 3;
-        } else if (maxCustomersExpansionLevel >= 1) {
-          customersToSpawn = 2;
-        }
         
         customersToSpawn = Math.min(customersToSpawn, currentMaxCustomers);
         
@@ -183,7 +180,7 @@ export function useCustomerSpawning({
       }, spawnInterval);
     };
     
-    const initialDelay = 1000;
+    const initialDelay = 5000; // Wait 5 seconds before first customer
     timeoutId = setTimeout(() => {
       if (isActive && barOpen) {
         spawnCustomer();
@@ -199,4 +196,5 @@ export function useCustomerSpawning({
 
   return spawnCustomer;
 }
+
 
