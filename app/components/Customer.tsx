@@ -1,56 +1,58 @@
 "use client";
 
 import React from "react";
-import type { Customer as CustomerType } from "../types";
+import type { Customer } from "../types";
 
-interface CustomerProps {
-  customer: CustomerType;
+interface CustomerComponentProps {
+  customer: Customer;
   onClick: () => void;
 }
 
-export default function Customer({ customer, onClick }: CustomerProps) {
+export default function CustomerComponent({ customer, onClick }: CustomerComponentProps) {
+  const opportunityIcon = customer.opportunity === "moral_dilemma" 
+    ? "/img/quest-mark.png" 
+    : customer.opportunity 
+    ? "/img/money-mark.png" 
+    : null;
+
   return (
     <div
       className="customer-pixel"
       style={{
         left: `${customer.x}%`,
-        bottom: `${customer.y}%`, // Use bottom instead of top to align with white bar
-        color: customer.color,
-        cursor: customer.opportunity ? 'pointer' : 'default',
-        transform: customer.direction === 'left' ? 'scaleX(-1)' : 'none',
-        transition: customer.walking ? 'left 0.5s linear' : 'none'
+        bottom: `${customer.y}%`,
+        cursor: customer.opportunity ? "pointer" : "default",
       }}
-      onClick={onClick}
+      {...(customer.opportunity ? { onClick } : {})}
     >
-      <img 
-        src={customer.sprite} 
+      {opportunityIcon && (
+        <img
+          src={opportunityIcon}
+          alt="opportunity"
+          className={`customer-opportunity ${
+            customer.opportunity === "moral_dilemma" ? "moral-dilemma-indicator" : ""
+          }`}
+        />
+      )}
+      <img
+        src={customer.sprite}
         alt={customer.name}
         className="customer-sprite"
       />
       <div className="customer-name">{customer.name}</div>
-      
-      {/* Opportunity Icon */}
-      {customer.opportunity && (
-        <div className={`customer-opportunity ${customer.opportunity === "moral_dilemma" ? "moral-dilemma-indicator" : ""}`}>
-          {customer.opportunity === "order" && "🍺"}
-          {customer.opportunity === "tip" && "💰"}
-          {customer.opportunity === "special" && "⭐"}
-          {customer.opportunity === "complaint" && "😠"}
-          {customer.opportunity === "moral_dilemma" && "⚖️"}
-        </div>
-      )}
-      
-      {/* Patience Bar */}
       <div className="customer-patience">
-        <div 
+        <div
           className="customer-patience-fill"
-          style={{ 
-            width: `${customer.patience}%`,
-            background: customer.patience > 50 ? '#8b9a5b' : customer.patience > 25 ? '#c97d60' : '#8b0000'
+          style={{
+            width: `${Math.max(0, Math.min(100, customer.patience))}%`,
+            background: customer.patience > 50 
+              ? "linear-gradient(90deg, var(--success), var(--accent))" 
+              : customer.patience > 25 
+              ? "linear-gradient(90deg, var(--accent), var(--danger))" 
+              : "var(--danger)",
           }}
-        ></div>
+        />
       </div>
     </div>
   );
 }
-

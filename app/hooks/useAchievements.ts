@@ -83,10 +83,6 @@ export function useAchievements({
       newAchievements.push("demon");
       pushLog("🏆 Achievement: Demon! You've embraced the darkness!");
     }
-    if (moral >= 65 && moral <= 75 && !achievements.has("neutral_master")) {
-      newAchievements.push("neutral_master");
-      pushLog("🏆 Achievement: Neutral Master! Perfectly balanced!");
-    }
     
     if (prestigeLevel >= 1 && !achievements.has("first_prestige")) {
       newAchievements.push("first_prestige");

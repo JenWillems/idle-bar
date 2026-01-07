@@ -138,7 +138,6 @@ export const upgradeToCustomerMap: Record<string, SkeletonPersonality> = {
   "watered_down": "evil",
   "hidden_fees": "smoking",
   "tip_stealing": "evil",
-  "tax_evasion": "smoking",
   "quality_ingredients": "flower",
   "fair_wages": "deco",
   "sustainable_practices": "rebel"

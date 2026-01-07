@@ -27,8 +27,7 @@ export function useCustomerSpawning({
   pushLog
 }: UseCustomerSpawningProps) {
   const spawnCustomer = useCallback((forceSpawn = false) => {
-    const barExpansionLevel = upgrades.find((u) => u.id === "bar_expansion")?.level ?? 0;
-    const maxCustomers = 3 + barExpansionLevel; // Base 3, +1 per bar expansion level
+    const maxCustomers = 3; // Fixed max customers without bar expansion
     const currentUnlocked = Array.from(unlockedCustomers);
     const currentServed = Array.from(servedCustomers.values());
     
@@ -157,8 +156,7 @@ export function useCustomerSpawning({
       timeoutId = setTimeout(() => {
         if (!isActive) return;
         
-        const barExpansionLevel = upgrades.find((u) => u.id === "bar_expansion")?.level ?? 0;
-        const currentMaxCustomers = 3 + barExpansionLevel; // Base 3, +1 per bar expansion level
+        const currentMaxCustomers = 3; // Fixed max customers
         
         // Always spawn only 1 customer at a time - slower, more relaxed pace
         let customersToSpawn = 1;

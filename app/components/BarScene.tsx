@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Customer from "./Customer";
+import CustomerComponent from "./Customer";
 import type { Customer as CustomerType } from "../types";
 
 interface BarSceneProps {
@@ -37,7 +37,7 @@ export default function BarScene({ customers, onCustomerClick, barOpen, onToggle
         
         {/* Customers - only show when bar is open */}
         {barOpen && customers.map((customer) => (
-          <Customer
+          <CustomerComponent
             key={customer.id}
             customer={customer}
             onClick={() => onCustomerClick(customer.id)}

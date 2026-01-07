@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import type {
   UpgradeId,
   Upgrade,
@@ -25,7 +25,7 @@ import MoralLogPanel from "./components/MoralLogPanel";
 import { initialDrinks } from "./constants/drinks";
 import { initialUpgrades } from "./constants/upgrades";
 import { moralEvents } from "./constants/moralEvents";
-import { skeletonPersonalities, upgradeToCustomerMap } from "./constants/skeletonPersonalities";
+import { skeletonPersonalities } from "./constants/skeletonPersonalities";
 import { getRandomDialog } from "./constants/dialogs";
 
 // Import utilities
@@ -40,7 +40,7 @@ import { useCustomerSpawning } from "./hooks/useCustomerSpawning";
 
 
 export default function HomePage() {
-  const [beer, setBeer] = useState(0); // ruwe bier-eenheden
+  const [beer, setBeer] = useState(0);
   const [money, setMoney] = useState(0);
   const [totalGlassesSold, setTotalGlassesSold] = useState(0);
   const [upgrades, setUpgrades] = useState<Upgrade[]>(initialUpgrades);
@@ -48,11 +48,10 @@ export default function HomePage() {
   const [activeDrink, setActiveDrink] = useState<DrinkType>("bier");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
-  const [moral, setMoral] = useState(70); // 0-130, Grim Fandango-stijl moreel systeem
+  const [moral, setMoral] = useState(70);
   const [activeChoice, setActiveChoice] = useState<MoralChoice | null>(null);
   const [activeCustomerQuest, setActiveCustomerQuest] = useState<CustomerQuest | null>(null);
-  const [customerForMoralEvent, setCustomerForMoralEvent] = useState<Customer | null>(null); // Track which customer triggered moral event
-  const [lastEventTime, setLastEventTime] = useState(0);
+  const [customerForMoralEvent, setCustomerForMoralEvent] = useState<Customer | null>(null);
   const [skeletonComment, setSkeletonComment] = useState<string>("");
   const [skeletonVisible, setSkeletonVisible] = useState(false);
   const [lastPunishmentTime, setLastPunishmentTime] = useState(0);
@@ -65,16 +64,14 @@ export default function HomePage() {
   const [totalMoralChoices, setTotalMoralChoices] = useState(0);
   const [totalCustomersServed, setTotalCustomersServed] = useState(0);
   const [maxUpgradeLevel, setMaxUpgradeLevel] = useState(0);
-  const [barOpen, setBarOpen] = useState(false); // Bar starts closed - customers only show when opened
-  const [unlockedCustomers, setUnlockedCustomers] = useState<Set<SkeletonPersonality>>(new Set(["deco"])); // Start with Deco unlocked
-  const [servedCustomers, setServedCustomers] = useState<Map<string, { personality: SkeletonPersonality; lastServed: number }>>(new Map()); // Track served customers for returns
+  const [barOpen, setBarOpen] = useState(false);
+  const allCustomerTypes: SkeletonPersonality[] = ["deco", "evil", "flower", "rebel", "smoking", "witch"];
+  const unlockedCustomers = useMemo(() => new Set(allCustomerTypes), [allCustomerTypes]);
+  const [servedCustomers, setServedCustomers] = useState<Map<string, { personality: SkeletonPersonality; lastServed: number }>>(new Map());
   const [activeTab, setActiveTab] = useState<"stats" | "upgrades" | "achievements">("stats");
   const [lastCostTime, setLastCostTime] = useState(Date.now());
 
-  // Use extracted hook for game stats
   const stats = useGameStats(upgrades, moral, prestigePoints, drinks, activeDrink);
-
-  // Helper functions
   const pushLog = useCallback((message: string) => {
     const newId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
     setLog((prev: LogEntry[]) => {
@@ -96,7 +93,6 @@ export default function HomePage() {
     setMoral((prev: number) => Math.min(130, Math.max(0, prev + delta)));
   }, []);
 
-  // Use achievements hook
   useAchievements({
     totalGlassesSold,
     totalEarned,
@@ -112,7 +108,6 @@ export default function HomePage() {
     pushLog
   });
 
-  // Offline progress berekenen bij mount
   useEffect(() => {
     const savedTime = localStorage.getItem('lastSaveTime');
     if (savedTime) {
@@ -131,7 +126,6 @@ export default function HomePage() {
     setLastSaveTime(Date.now());
   }, [stats.tapPerTick, stats.tapInterval, pushLog]);
 
-  // Auto-save elke 10 seconden
   useEffect(() => {
     const id = window.setInterval(() => {
       localStorage.setItem('lastSaveTime', Date.now().toString());
@@ -140,46 +134,75 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Automatische bier-ticks
   useEffect(() => {
+    const safeTapInterval = stats.tapInterval && isFinite(stats.tapInterval) && stats.tapInterval > 0 ? stats.tapInterval : 1000;
+    const safeTapPerTick = stats.tapPerTick && isFinite(stats.tapPerTick) && stats.tapPerTick > 0 ? stats.tapPerTick : 1;
+    
+    if (!safeTapInterval || safeTapInterval <= 0) {
+      console.error("Invalid tapInterval:", stats.tapInterval);
+      return;
+    }
+    if (!safeTapPerTick || safeTapPerTick <= 0) {
+      console.error("Invalid tapPerTick:", stats.tapPerTick);
+      return;
+    }
     const id = window.setInterval(() => {
-      setBeer((prev: number) => prev + stats.tapPerTick * (goldenEventActive ? 3 : 1));
-    }, stats.tapInterval);
+      setBeer((prev: number) => {
+        const currentBeer = isFinite(prev) && !isNaN(prev) ? prev : 0;
+        return currentBeer + safeTapPerTick * (goldenEventActive ? 3 : 1);
+      });
+    }, safeTapInterval);
     return () => window.clearInterval(id);
   }, [stats.tapInterval, stats.tapPerTick, goldenEventActive]);
 
-  // Automatisch verkopen (als er tenminste personeel is)
   useEffect(() => {
     const autoSellerLevel = upgrades.find((u: Upgrade) => u.id === "auto_seller")?.level ?? 0;
     if (autoSellerLevel <= 0) return;
 
+    const safeAutoSellInterval = stats.autoSellInterval && isFinite(stats.autoSellInterval) && stats.autoSellInterval > 0 ? stats.autoSellInterval : 4000;
+    const safeAutoSellBatch = stats.autoSellBatch && isFinite(stats.autoSellBatch) && stats.autoSellBatch > 0 ? stats.autoSellBatch : 4;
+    const safePricePerGlass = stats.pricePerGlass && isFinite(stats.pricePerGlass) && stats.pricePerGlass > 0 ? stats.pricePerGlass : 4;
+    const safeDrinkCapacity = stats.drinkCapacity && isFinite(stats.drinkCapacity) && stats.drinkCapacity > 0 ? stats.drinkCapacity : 20;
+    const safeDrinkName = stats.currentDrink?.name?.toLowerCase() || "bier";
+
+    if (!safeAutoSellInterval || safeAutoSellInterval <= 0) {
+      console.error("Invalid autoSellInterval:", stats.autoSellInterval);
+      return;
+    }
+
     const id = window.setInterval(() => {
       setBeer((prevBeer: number) => {
-        const drinkCapacity = stats.drinkCapacity;
-        const availableGlasses = Math.floor(prevBeer / drinkCapacity);
-        const toSell = Math.min(availableGlasses, Math.max(1, Math.floor(stats.autoSellBatch)));
-        if (toSell <= 0) return prevBeer;
+        const safeBeer = isFinite(prevBeer) && !isNaN(prevBeer) ? prevBeer : 0;
+        const availableGlasses = Math.floor(safeBeer / safeDrinkCapacity);
+        const toSell = Math.min(availableGlasses, Math.max(1, Math.floor(safeAutoSellBatch)));
+        if (toSell <= 0) return safeBeer;
 
-        const earned = toSell * stats.pricePerGlass * (goldenEventActive ? 2 : 1);
+        const earned = toSell * safePricePerGlass * (goldenEventActive ? 2 : 1);
         setMoney((m: number) => {
-          const newMoney = m + earned;
-          setTotalEarned((te: number) => te + earned);
+          const currentMoney = isFinite(m) && !isNaN(m) ? m : 0;
+          const newMoney = currentMoney + earned;
+          setTotalEarned((te: number) => {
+            const currentTotal = isFinite(te) && !isNaN(te) ? te : 0;
+            return currentTotal + earned;
+          });
           return newMoney;
         });
-        setTotalGlassesSold((g: number) => g + toSell);
+        setTotalGlassesSold((g: number) => {
+          const currentSold = isFinite(g) && !isNaN(g) ? g : 0;
+          return currentSold + toSell;
+        });
         if (Math.random() > 0.8) {
           const dialog = getRandomDialog("auto_sell", moral);
           showSkeletonComment(dialog);
         }
-        pushLog(`Your staff sold ${toSell} ${stats.currentDrink.name.toLowerCase()} for €${earned.toFixed(0)}.`);
-        return prevBeer - toSell * drinkCapacity;
+        pushLog(`Your staff sold ${toSell} ${safeDrinkName} for €${earned.toFixed(0)}.`);
+        return safeBeer - toSell * safeDrinkCapacity;
       });
-    }, stats.autoSellInterval);
+    }, safeAutoSellInterval);
 
     return () => window.clearInterval(id);
-  }, [stats.autoSellInterval, stats.autoSellBatch, stats.pricePerGlass, stats.drinkCapacity, stats.currentDrink.name, upgrades, goldenEventActive, moral, showSkeletonComment, pushLog]);
+  }, [stats.autoSellInterval, stats.autoSellBatch, stats.pricePerGlass, stats.drinkCapacity, stats.currentDrink, upgrades, goldenEventActive, moral, showSkeletonComment, pushLog]);
 
-  // Moreel langzaam laten schuiven richting neutraal
   useEffect(() => {
     const id = window.setInterval(() => {
       setMoral((prev: number) => {
@@ -191,9 +214,6 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Morale events are now ONLY triggered by talking to customers - removed automatic system
-
-  // Fable 3-stijl corruptie/straf systeem - automatische punishments bij lage morale
   useEffect(() => {
     const checkForPunishment = () => {
       const now = Date.now();
@@ -235,7 +255,6 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, [lastPunishmentTime, stats.moralEffective, adjustMoral, showSkeletonComment, pushLog, moral]);
 
-  // Golden Events (zoals Cookie Clicker) - willekeurige bonussen
   useEffect(() => {
     const checkGoldenEvent = () => {
       if (Math.random() < 0.01 && !goldenEventActive) {
@@ -263,7 +282,6 @@ export default function HomePage() {
     return () => window.clearInterval(id);
   }, [goldenEventActive, pushLog, showSkeletonComment]);
 
-  // Track max upgrade level for achievements
   useEffect(() => {
     const maxLevel = Math.max(...upgrades.map(u => u.level), 0);
     if (maxLevel > maxUpgradeLevel) {
@@ -323,28 +341,7 @@ export default function HomePage() {
   }, [lastCostTime, upgrades, stats.tapPerTick, stats.tapInterval, moral, pushLog, showSkeletonComment]);
 
 
-  // Unlock customers when upgrades are purchased
-  useEffect(() => {
-    setUnlockedCustomers((prevUnlocked) => {
-      const newUnlocked = new Set<SkeletonPersonality>(prevUnlocked);
-      let hasNewUnlock = false;
-
-      upgrades.forEach((upgrade) => {
-        if (upgrade.level > 0) {
-          const customerType = upgradeToCustomerMap[upgrade.id];
-          if (customerType && !newUnlocked.has(customerType)) {
-            newUnlocked.add(customerType);
-            hasNewUnlock = true;
-            pushLog(`🎉 New customer unlocked: ${skeletonPersonalities[customerType].name}!`);
-          }
-        }
-      });
-
-      return hasNewUnlock ? newUnlocked : prevUnlocked;
-    });
-  }, [upgrades, pushLog]);
-
-  // Use customer spawning hook
+  // Use customer spawning hook - all customers available from start
   const spawnCustomer = useCustomerSpawning({
     barOpen,
     upgrades,
@@ -454,7 +451,6 @@ export default function HomePage() {
       const randomEvent = moralEvents[Math.floor(Math.random() * moralEvents.length)];
       setActiveChoice(randomEvent);
       setCustomerForMoralEvent(customer); // Track which customer triggered this
-      setLastEventTime(Date.now());
       
       // Show personality-based comment
       const personalityData = skeletonPersonalities[customer.personality];
@@ -647,16 +643,21 @@ export default function HomePage() {
   }
 
   function handleManualTap() {
-    const amount = stats.tapPerTick * 0.8;
-    setBeer((b: number) => b + amount);
+    const safeTapPerTick = stats.tapPerTick && isFinite(stats.tapPerTick) && stats.tapPerTick > 0 ? stats.tapPerTick : 1;
+    const amount = safeTapPerTick * 0.8;
+    setBeer((b: number) => {
+      const currentBeer = isFinite(b) && !isNaN(b) ? b : 0;
+      return currentBeer + amount;
+    });
     // Geen skeleton comment en geen log entry meer bij handmatig tappen
     // zodat de chat/log niet volloopt met tap-berichten.
   }
 
   function handleSellOneBatch() {
     setBeer((prevBeer: number) => {
-      const drinkCapacity = stats.drinkCapacity;
-      const availableGlasses = Math.floor(prevBeer / drinkCapacity);
+      const safeBeer = isFinite(prevBeer) && !isNaN(prevBeer) ? prevBeer : 0;
+      const drinkCapacity = stats.drinkCapacity && isFinite(stats.drinkCapacity) && stats.drinkCapacity > 0 ? stats.drinkCapacity : 20;
+      const availableGlasses = Math.floor(safeBeer / drinkCapacity);
       if (availableGlasses <= 0) {
         // Alleen 30% kans op skeleton comment bij lege glazen
         if (Math.random() > 0.7) {
@@ -665,25 +666,33 @@ export default function HomePage() {
         }
         pushLog("Je probeert te verkopen, maar je glazen zijn leeg.");
         // Geen morale penalty meer - alleen slechte keuzes in events geven penalty
-        return prevBeer;
+        return safeBeer;
       }
       const toSell = Math.min(availableGlasses, 6);
-      const earned = toSell * stats.pricePerGlass * (goldenEventActive ? 2 : 1);
+      const safePricePerGlass = stats.pricePerGlass && isFinite(stats.pricePerGlass) && stats.pricePerGlass > 0 ? stats.pricePerGlass : 4;
+      const earned = toSell * safePricePerGlass * (goldenEventActive ? 2 : 1);
       setMoney((m: number) => {
-        const newMoney = m + earned;
-        setTotalEarned((te: number) => te + earned);
+        const currentMoney = isFinite(m) && !isNaN(m) ? m : 0;
+        const newMoney = currentMoney + earned;
+        setTotalEarned((te: number) => {
+          const currentTotal = isFinite(te) && !isNaN(te) ? te : 0;
+          return currentTotal + earned;
+        });
         return newMoney;
       });
-      setTotalGlassesSold((g: number) => g + toSell);
+      setTotalGlassesSold((g: number) => {
+        const currentSold = isFinite(g) && !isNaN(g) ? g : 0;
+        return currentSold + toSell;
+      });
       // Alleen 30% kans op skeleton comment bij verkoop
       if (Math.random() > 0.7) {
         const dialog = getRandomDialog("sell", moral);
         showSkeletonComment(dialog);
       }
-      const drinkName = stats.currentDrink.name.toLowerCase();
+      const drinkName = stats.currentDrink?.name?.toLowerCase() || "bier";
       pushLog(`Je verkoopt ${toSell} ${drinkName} voor €${earned.toFixed(0)}.`);
       // Geen morale meer bij normale verkoop - alleen goede keuzes geven morale
-      return prevBeer - toSell * drinkCapacity;
+      return safeBeer - toSell * drinkCapacity;
     });
   }
 
@@ -695,23 +704,23 @@ export default function HomePage() {
         return prev;
       }
       // Fix: Bereken cost VOOR de check, en gebruik functional update voor money
-      const cost = calculateUpgradeCost(upgrade);
-      if (money < cost) {
-        // Alleen 30% kans op skeleton comment bij mislukte upgrade
-        if (Math.random() > 0.7) {
-          const dialog = getRandomDialog("no_money", moral);
-          showSkeletonComment(dialog);
-        }
-        pushLog(`Niet genoeg geld voor ${upgrade.name}.`);
-        // Geen morale penalty meer bij geen geld - alleen slechte keuzes geven penalty
-        return prev;
-      }
-      // Fix: Gebruik functional update om race conditions te voorkomen
+      const cost = calculateUpgradeCost(upgrade, prev);
       setMoney((m: number) => {
-        const newMoney = m - cost;
+        const currentMoney = isFinite(m) && !isNaN(m) ? m : 0;
+        if (currentMoney < cost) {
+          // Alleen 30% kans op skeleton comment bij mislukte upgrade
+          if (Math.random() > 0.7) {
+            const dialog = getRandomDialog("no_money", moral);
+            showSkeletonComment(dialog);
+          }
+          pushLog(`Niet genoeg geld voor ${upgrade.name}.`);
+          // Geen morale penalty meer bij geen geld - alleen slechte keuzes geven penalty
+          return currentMoney;
+        }
+        const newMoney = currentMoney - cost;
         if (newMoney < 0) {
           pushLog(`Fout: niet genoeg geld voor ${upgrade.name}.`);
-          return m; // Geen geld aftrekken als er niet genoeg is
+          return currentMoney; // Geen geld aftrekken als er niet genoeg is
         }
         return newMoney;
       });

@@ -58,7 +58,7 @@ export default function UpgradesPanel({
             onClick={() => onBuyUpgrade(upgrade.id)}
             disabled={!canAfford}
           >
-            {canAfford ? 'Buy' : 'Locked'}
+            {canAfford ? 'Buy' : `Need €${(cost - money).toFixed(0)}`}
           </button>
         </div>
       </div>
